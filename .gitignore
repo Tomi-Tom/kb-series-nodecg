@@ -1,0 +1,18 @@
+# Dépendances
+node_modules/
+
+# Données locales (passent par Régie → Données → Exporter / Importer)
+db/
+assets/
+logs/
+
+# Secrets
+rtk.txt
+.env
+*.pem
+
+# Références et sorties générées
+Medias/
+shots/
+exports/
+*.log

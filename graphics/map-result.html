@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>Résultat de map</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<link rel="stylesheet" href="../shared/maps.css">
+	<style>
+		#splash { position: absolute; inset: -20px; background: var(--kb-night-1) center / cover no-repeat; filter: saturate(.8) blur(2px); opacity: .55; }
+		#shade { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(10, 15, 46, .35), rgba(4, 6, 26, .85) 70%), linear-gradient(180deg, rgba(4, 6, 26, .4), transparent 30%, rgba(4, 6, 26, .9)); }
+		#tint { position: absolute; inset: 0; background: linear-gradient(115deg, rgba(43, 47, 181, .4), transparent 60%); mix-blend-mode: screen; }
+
+		#main { position: absolute; left: 96px; right: 96px; top: 64px; bottom: 120px; }
+		.with-mvp #main { right: 700px; }
+		#top { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+		#top .logo { width: 110px; height: 110px; border-radius: 50%; }
+		#top .logo img { width: 110px; height: 110px; }
+		#top .mapname { font: 400 92px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+		#top .kb-rule { width: 520px; margin-top: 4px; }
+
+		#score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 40px; margin-top: 48px; }
+		.team { display: flex; flex-direction: column; align-items: center; gap: 16px; min-width: 0; text-align: center; position: relative; }
+		.team .lg { position: relative; display: grid; place-items: center; width: 220px; height: 220px; }
+		.team .lg > * { position: relative; }
+		.team .lg .halo { position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, var(--c) 0%, transparent 65%); opacity: .35; }
+		.team .lg .rays { position: absolute; inset: -70px; border-radius: 50%; display: none;
+			background: repeating-conic-gradient(from 0deg, rgba(245, 196, 69, .22) 0deg 6deg, transparent 6deg 24deg);
+			mask-image: radial-gradient(circle, #000 25%, transparent 68%); -webkit-mask-image: radial-gradient(circle, #000 25%, transparent 68%);
+			animation: rays 30s linear infinite; }
+		@keyframes rays { to { transform: rotate(360deg); } }
+		.team.win .lg .rays { display: block; }
+		.team.win .lg .halo { background: radial-gradient(circle, rgba(245, 196, 69, .9) 0%, var(--c) 35%, transparent 68%); animation: kbm-breathe 4.5s ease-in-out infinite; }
+		.team .nm { font: 400 52px/1.05 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.team .res { min-height: 34px; display: flex; align-items: center; }
+		.team .res .kb-pill { position: relative; overflow: hidden; }
+		.team .res .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -50%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); animation: kbm-sweep 4s ease-in-out infinite; animation-delay: 2s; }
+		.team.lose .lg, .team.lose .nm { opacity: .5; filter: grayscale(.6); }
+		.with-mvp .team .lg { width: 170px; height: 170px; }
+		.with-mvp .team .nm { font-size: 42px; }
+		#nums { display: flex; align-items: center; gap: 30px; font: 400 220px/0.9 var(--kb-display); font-variant-numeric: tabular-nums; }
+		#nums span { display: inline-block; }
+		.with-mvp #nums { font-size: 170px; gap: 22px; }
+		#nums .d { font-size: .45em; color: var(--kb-gold); }
+		#nums .w { color: var(--kb-gold-hi); text-shadow: 0 0 40px rgba(245, 196, 69, .45); }
+		#nums .l { color: rgba(243, 241, 234, .45); }
+
+		#seriesbar { margin: 44px auto 0; display: flex; align-items: center; justify-content: center; gap: 28px; padding: 18px 40px; width: fit-content; }
+		#seriesbar .k { font: 700 16px var(--kb-ui); letter-spacing: .32em; text-transform: uppercase; color: var(--kb-gold); }
+		#seriesbar .pips { display: flex; gap: 8px; }
+		#seriesbar .pips.r { flex-direction: row-reverse; }
+		#seriesbar .pip { width: 34px; height: 12px; transform: skewX(-20deg); background: rgba(140, 170, 255, .18); border: 1px solid var(--kb-line); }
+		#seriesbar .pip.on { background: var(--kb-gold-hi); border-color: var(--kb-gold-hi); box-shadow: 0 0 12px rgba(245, 196, 69, .6); }
+		.kb-in #seriesbar .pip.on { animation: pip-on .5s var(--kb-ease-out) backwards; animation-delay: calc(1.3s + var(--p, 0) * 160ms); }
+		@keyframes pip-on { from { background: rgba(140, 170, 255, .18); box-shadow: none; transform: skewX(-20deg) scaleX(.2); } }
+		.kb-settled #seriesbar .pip.on { animation: none; }
+		#seriesbar .sc { font: 400 54px/1 var(--kb-display); }
+		#seriesbar .sc span { display: inline-block; }
+		#seriesbar .tg { font: 700 26px var(--kb-num); letter-spacing: .06em; }
+		#clinch { margin-top: 26px; text-align: center; font: 700 30px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-gold-hi); text-shadow: 0 0 20px rgba(245, 196, 69, .45); }
+
+		/* MVP */
+		#mvp { position: absolute; right: 96px; top: 96px; bottom: 120px; width: 560px; overflow: hidden; }
+		#mvp .bg { position: absolute; inset: 0; background: linear-gradient(160deg, rgba(27, 35, 102, .8), rgba(10, 15, 46, .92)); }
+		#mvp .glow { position: absolute; left: 50%; top: 30%; width: 560px; height: 560px; margin-left: -280px; border-radius: 50%; background: radial-gradient(circle, var(--ag, var(--kb-blue)) 0%, transparent 65%); }
+		#mvp .agbg { position: absolute; left: -60px; right: -60px; top: 0; height: 700px; background: center top / contain no-repeat; opacity: .28; filter: saturate(.6) blur(1px); }
+		#mvp .port { position: absolute; left: -40px; right: -40px; top: 10px; height: 640px; background: center top / contain no-repeat; filter: drop-shadow(0 20px 40px rgba(0, 0, 0, .6)); }
+		#mvp .port.photo { left: 0; right: 0; top: 40px; height: 640px; background-position: center bottom; }
+		#mvp .port.none { background-image: url('../shared/img/kbs-logo.png'); background-size: 440px; background-position: center 150px; opacity: .85; }
+		.kb-in #mvp .port { animation: port-in 1.1s var(--kb-ease-out) backwards; animation-delay: 1s; }
+		@keyframes port-in { from { opacity: 0; transform: translateX(80px) scale(1.04); } }
+		.kb-settled #mvp .port { animation: none; }
+		#mvp .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; background: linear-gradient(180deg, transparent, rgba(4, 6, 26, .85) 40%, var(--kb-night-0)); }
+		#mvp .pill { position: absolute; left: 32px; top: 32px; overflow: hidden; }
+		#mvp .pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -50%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); animation: kbm-sweep 4.5s ease-in-out infinite; animation-delay: 2.4s; }
+		#mvp .info { position: absolute; left: 32px; right: 32px; bottom: 30px; }
+		#mvp .pn { font: 400 76px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		#mvp .real { font: 600 18px var(--kb-ui); letter-spacing: .12em; color: var(--kb-text); opacity: .75; margin-top: 2px; }
+		#mvp .pt { display: flex; align-items: center; gap: 10px; margin-top: 6px; font: 600 15px var(--kb-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--kb-muted); }
+		#mvp .pt img.rk { width: 30px; height: 30px; margin-left: 8px; }
+		#mvp .ag { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--kb-line); }
+		#mvp .ag img { width: 48px; height: 48px; }
+		#mvp .ag .k { font: 600 13px var(--kb-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--kb-muted); }
+		#mvp .ag .v { font: 700 26px/1.1 var(--kb-num); text-transform: uppercase; letter-spacing: .04em; }
+		#mvp .mst { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+		#mvp .mst > div { background: rgba(4, 6, 26, .5); border: 1px solid var(--kb-line); padding: 8px 12px; }
+		#mvp .mst .k { font: 600 12px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--kb-muted); }
+		#mvp .mst .v { font: 400 34px/1.1 var(--kb-display); }
+		#mvp .note { margin-top: 10px; font: 500 12px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; color: rgba(142, 154, 200, .7); }
+
+		#empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+	</style>
+</head>
+<body>
+	<div id="scene" class="kbm-scene">
+		<div id="splash" class="kbm-kenburns"></div>
+		<div id="shade"></div>
+		<div id="tint"></div>
+		<div class="kb-bg__stars"></div>
+		<div class="kbm-drift"></div>
+		<div id="content"></div>
+		<div class="kb-frame"></div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/maps.js"></script>
+	<script>
+		const $ = (s) => document.querySelector(s);
+		const sceneEl = $('#scene');
+		const scene = KBM.scene(sceneEl, 3400);
+		const esc = KB.esc;
+		const seen = new Map();
+
+		// value = Riot ID d'un joueur (fiche KB.player) OU nom saisi librement dans le panneau
+		function mvpHtml(value, mapName, mapIndex, match, fallbackTeamKey) {
+			value = String(value || '').trim();
+			if (!value) return '';
+			const known = !!(KB.teamOf(value) || (KB.rep.playerData.value || {})[KB.key(value)] || KB.profile(value));
+			const p = known ? KB.player(value) : null;
+			const name = p ? p.name : value.split('#')[0];
+			const team = (p && p.team) || (fallbackTeamKey ? KBM.teamOf(fallbackTeamKey, match) : null);
+			// Agent : pické sur la map > favori sur la map (tracker) > favori général
+			const pick = p && KB.pickOf(p.riotId, mapIndex);
+			const pm = p && (p.maps || []).find((x) => x.name === mapName);
+			let ag = null, agLabel = '';
+			if (pick) { ag = pick; agLabel = `Agent joué sur ${mapName}`; }
+			else if (pm && pm.topAgent) { ag = { ...(KB.agentInfo(pm.topAgent.name) || {}), name: pm.topAgent.name, icon: (KB.agentInfo(pm.topAgent.name) || {}).icon || pm.topAgent.icon }; agLabel = `Agent favori sur ${mapName}`; }
+			else if (p && p.agents && p.agents[0]) { ag = p.agents[0]; agLabel = 'Agent favori'; }
+			const agColor = ag && ag.color;
+			// Visuel : photo standing > portrait de l'agent > logo KB
+			const photo = p && p.photo;
+			const port = photo ? `<div class="agbg" style="${ag && ag.portrait ? `background-image:url('${esc(ag.portrait)}')` : ''}"></div><div class="port photo" style="background-image:url('${esc(photo)}')"></div>`
+				: ag && ag.portrait ? `<div class="port" style="background-image:url('${esc(ag.portrait)}')"></div>` : `<div class="port none"></div>`;
+			// Stats : sur la map (tracker) sinon saison (fiche, saisie manuelle comprise)
+			let stats = '';
+			if (pm) {
+				stats = `<div class="mst"><div><div class="k">Winrate</div><div class="v">${esc(KBM.pct(pm.winPct))}</div></div><div><div class="k">K/D</div><div class="v">${esc(KBM.dec(pm.kd))}</div></div><div><div class="k">ACS</div><div class="v">${esc(pm.acs ? Math.round(parseFloat(pm.acs)) : '–')}</div></div></div>
+					<div class="note">Stats ranked du joueur sur ${esc(mapName)}</div>`;
+			} else if (p && Object.keys(p.stats || {}).length) {
+				const hs = KBM.stat(p, 'hs');
+				stats = `<div class="mst"><div><div class="k">ACS</div><div class="v">${esc(KBM.stat(p, 'acs', 0))}</div></div><div><div class="k">K/D</div><div class="v">${esc(KBM.stat(p, 'kd', 2))}</div></div><div><div class="k">HS</div><div class="v">${esc(hs === '–' ? hs : KBM.pct(hs))}</div></div></div>
+					<div class="note">Stats ranked de la saison</div>`;
+			}
+			const fs = name.length > 11 ? `font-size:${Math.max(40, Math.floor(860 / name.length))}px` : '';
+			return `<div id="mvp" class="kb-panel kbm-wipe" style="--i:7;${agColor ? `--ag:${esc(agColor)}` : ''}">
+				<div class="bg"></div><div class="glow kbm-breathe"></div>${port}
+				<div class="fade"></div>
+				<div class="pill kb-pill">MVP de la map</div>
+				<div class="info">
+					<div class="pn kb-anim kb-anim--right" style="--i:12;${fs}" data-k="mvp">${esc(name)}</div>
+					${p && p.realName ? `<div class="real kb-anim" style="--i:13">${esc(p.realName)}</div>` : ''}
+					<div class="pt kb-anim" style="--i:13">${team ? KB.teamLogo(team, 26) + esc(team.name) : ''}${p && p.rank && p.rank.icon ? `<img class="rk" src="${esc(p.rank.icon)}" alt="">${esc(p.rank.name)}` : ''}</div>
+					${ag ? `<div class="ag kb-anim" style="--i:14">${ag.icon ? `<img src="${esc(ag.icon)}" alt="">` : ''}<div><div class="k">${esc(agLabel)}</div><div class="v">${esc(ag.name)}</div></div></div>` : ''}
+					${stats ? `<div class="kb-anim" style="--i:15">${stats}</div>` : ''}
+				</div></div>`;
+		}
+
+		function render() {
+			const match = KB.rep.match.value || {};
+			const cfg = KBM.cfg().result;
+			KBM.teamVars(sceneEl, match);
+			const at = KBM.mapAt(cfg.index, match);
+			const content = $('#content');
+			const entering = !sceneEl.classList.contains('kb-in') || !sceneEl.classList.contains('kb-settled');
+			if (!at || !at.entry || !at.entry.map) {
+				sceneEl.classList.remove('with-mvp');
+				$('#splash').style.backgroundImage = `url("${KB.img.posterArt}")`;
+				content.innerHTML = `<div id="empty"><div><img class="kb-logo kb-anim kb-anim--pop" src="${KB.img.kbs}" style="width:240px;height:240px;margin:0 auto"><div class="kb-title kb-anim" style="--i:2;font-size:100px;margin-top:20px">Aucune map jouée</div></div></div>`;
+				return;
+			}
+			const e = at.entry, m = KB.map(e.map);
+			const mapName = (m && m.name) || e.map;
+			$('#splash').style.backgroundImage = m && m.splash ? `url("${m.splash}")` : `url("${KB.img.posterArt}")`;
+			const { left, right, leftKey, rightKey } = KB.sides(match);
+			const sc = { A: +e.scoreA || 0, B: +e.scoreB || 0 };
+			const w = KBM.winnerOf(e) || (e.status === 'done' && sc.A !== sc.B ? (sc.A > sc.B ? 'A' : 'B') : null);
+			const final = !!w;
+			const s = KB.seriesScore(match);
+			const need = KB.winsNeeded(match.format);
+			const clinch = s.A >= need ? 'A' : s.B >= need ? 'B' : null;
+			const mvp = mvpHtml(cfg.mvp, mapName, at.index, match, cfg.mvpTeam || w);
+			sceneEl.classList.toggle('with-mvp', !!mvp);
+
+			const teamHtml = (t, key, dir) => {
+				const res = w ? (w === key ? 'win' : 'lose') : '';
+				const c = (t && t.color) || (key === 'A' ? '#3b8fe6' : '#ff4655');
+				return `<div class="team ${res} kb-anim kb-anim--${dir}" style="--i:2;--c:${esc(c)}">
+					<div class="res">${res === 'win' ? '<span class="kb-pill">Victoire</span>' : '&nbsp;'}</div>
+					<div class="lg"><div class="rays"></div><div class="halo"></div><div class="kbm-glint" style="--gd:${dir === 'left' ? 2.2 : 3.4}s">${KB.teamLogo(t, mvp ? 150 : 190)}</div></div>
+					<div class="nm">${esc(t ? t.name : 'À déterminer')}</div></div>`;
+			};
+			const num = (key) => `<span class="${w ? (w === key ? 'w' : 'l') : ''}" data-k="n${key}" data-v="${sc[key]}" data-n="${sc[key]}">${sc[key]}</span>`;
+			let pipN = 0;
+			const pips = (key, cls) => `<div class="pips ${cls}">${Array.from({ length: need }, (_, i) => `<div class="pip ${i < s[key] ? 'on' : ''}" style="--p:${i < s[key] ? pipN++ : 0}"></div>`).join('')}</div>`;
+			const tag = (t) => (t ? `<div class="tg">${esc(t.tag || t.name)}</div>` : '');
+			const ct = clinch && KBM.teamOf(clinch, match);
+
+			content.innerHTML = `
+				<div id="main">
+					<div id="top">
+						<div class="logo kbm-glint kb-anim kb-anim--pop" style="--i:0"><img class="kb-logo" src="${KB.img.kbs}" alt=""></div>
+						<div class="kb-kicker kb-anim" style="--i:1">${final ? `Fin de la map ${at.number}` : `Map ${at.number} · en cours`} · ${esc(match.stage || '')}</div>
+						<div class="mapname kb-anim" style="--i:1">${esc(mapName)}</div>
+						<div class="kb-rule kb-rule--gold kbm-sweep kb-anim" style="--i:2"></div>
+					</div>
+					<div id="score">
+						${teamHtml(left, leftKey, 'left')}
+						<div id="nums" class="kb-anim kb-anim--pop" style="--i:3">${num(leftKey)}<span class="d">–</span>${num(rightKey)}</div>
+						${teamHtml(right, rightKey, 'right')}
+					</div>
+					<div id="seriesbar" class="kb-panel kb-anim" style="--i:5">
+						${tag(left)}${pips(leftKey, '')}
+						<div style="text-align:center"><div class="k">Série · ${esc(KB.formatLabel(match.format))}</div><div class="sc"><span data-k="sl">${s[leftKey]}</span> – <span data-k="sr">${s[rightKey]}</span></div></div>
+						${pips(rightKey, 'r')}${tag(right)}
+					</div>
+					${ct ? `<div id="clinch" class="kb-anim" style="--i:9">${esc(ct.name)} remporte la série</div>` : ''}
+				</div>
+				${mvp}
+				<div class="kbm-partners kb-anim" style="--i:10"><img src="${KB.img.kbs}" alt="">KB SERIES · Présenté par <img src="${KB.img.cycom}" alt=""> · Édition spéciale <img src="${KB.img.epitech}" alt="" style="height:30px"></div>`;
+			// Compteur sur le score à l'entrée seulement (rien ne bouge ensuite pendant la lecture)
+			if (entering) content.querySelectorAll('#nums [data-n]').forEach((el) => KB.countUp(el, el.dataset.n, { delay: 450, duration: 900 }));
+			KBM.flashChanges(sceneEl, seen);
+		}
+
+		KB.watch(['match', 'teams', 'valorantData', 'playerProfiles', 'playerData', KBM.rep()], () => {
+			scene.set(!!KBM.cfg().result.visible, render);
+		});
+	</script>
+</body>
+</html>

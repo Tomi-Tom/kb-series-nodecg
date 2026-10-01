@@ -1,0 +1,10 @@
+node_modules
+db
+assets
+logs
+shots
+exports
+Medias
+.git
+*.log
+rtk.txt

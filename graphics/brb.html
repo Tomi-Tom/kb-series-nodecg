@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>KB SERIES — Pause</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<link rel="stylesheet" href="../shared/scenes.css">
+	<style>
+		.kb-bg__art { opacity: .3; filter: saturate(1.1) blur(2px); }
+		#echo { position: absolute; left: 40px; right: 40px; top: 170px; font: 400 520px/1 var(--kb-display); text-transform: uppercase; color: transparent; -webkit-text-stroke: 2px rgba(94, 196, 255, .07); white-space: nowrap; pointer-events: none; }
+
+		/* ---------- Identité (haut gauche) ---------- */
+		#brand { position: absolute; left: 72px; top: 62px; display: flex; align-items: center; gap: 22px; }
+		#brand img { height: 118px; }
+		#brand .nm { font: 400 46px/1 var(--kb-display); letter-spacing: .04em; }
+		#brand .kb-label { margin-top: 6px; color: var(--kb-gold); font-size: 15px; letter-spacing: .3em; }
+		#stagePill { position: absolute; right: 72px; top: 92px; }
+
+		/* ---------- Colonne gauche ---------- */
+		#left { position: absolute; left: 120px; top: 270px; width: 820px; height: 540px; display: flex; flex-direction: column; justify-content: center; }
+		.solo #echo { text-align: center; }
+		#left.solo { left: 0; right: 0; width: auto; align-items: center; text-align: center; }
+		#kicker { font-size: 22px; }
+		#title { font-size: 230px; line-height: .9; margin: 8px 0 18px; white-space: nowrap; text-shadow: 0 0 40px rgba(78, 170, 255, .35), 0 8px 30px rgba(0, 0, 0, .6); max-width: 100%; }
+		#left .kb-rule { width: 560px; transform-origin: left; }
+		#left.solo .kb-rule { transform-origin: center; }
+		#message { margin-top: 24px; font: 600 34px/1.3 var(--kb-ui); color: var(--kb-text); max-width: 800px; }
+		#cdWrap { margin-top: 38px; display: inline-flex; align-items: center; gap: 30px; padding: 14px 40px 14px 34px; border-left: 4px solid var(--kb-gold); background: linear-gradient(90deg, rgba(10, 15, 46, .85), rgba(10, 15, 46, 0)); align-self: flex-start; }
+		#left.solo #cdWrap { align-self: center; border-left: 0; background: radial-gradient(closest-side, rgba(10, 15, 46, .85), transparent); }
+		#cdWrap .kb-label { color: var(--kb-blue-hi); font-size: 18px; letter-spacing: .28em; }
+		#cdWrap .sc-digits { font-size: 96px; }
+		#cdWrap .sc-digits.is-zero { font-size: 72px; }
+		#cdWrap.hidden { display: none; }
+
+		/* ---------- Série (droite) ---------- */
+		#series { position: absolute; right: 100px; top: 230px; width: 760px; padding: 28px 34px 30px; }
+		#series.hidden { display: none; }
+		#series .hd { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+		#series .hd .kb-kicker { font-size: 17px; white-space: nowrap; }
+		#series .hd .kb-label { font-size: 14px; color: var(--kb-blue-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.teams { display: grid; grid-template-columns: 1fr 220px 1fr; align-items: center; margin: 20px 0 22px; }
+		.tm { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+		.tm .nm { width: 100%; height: 64px; display: flex; align-items: center; justify-content: center; text-align: center; font: 400 30px/1.12 var(--kb-display); text-transform: uppercase; overflow: hidden; }
+		.tm .bar { width: 56px; height: 4px; background: var(--c); box-shadow: 0 0 10px var(--c); }
+		.score { display: flex; align-items: center; justify-content: center; gap: 16px; font: 400 112px/1 var(--kb-display); }
+		.score .dash { font-size: 60px; color: var(--kb-muted); }
+		.score .lead { color: var(--kb-gold-hi); text-shadow: 0 0 24px rgba(245, 196, 69, .35); }
+		.maps { display: flex; flex-direction: column; gap: 8px; }
+		.mp { position: relative; height: 66px; display: grid; grid-template-columns: 74px 1fr auto 150px; align-items: center; gap: 16px; padding: 0 18px; overflow: hidden; background: var(--kb-night-1); clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+		.mp .img { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .5; }
+		.mp .img::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4, 6, 26, .95) 0%, rgba(4, 6, 26, .55) 55%, rgba(4, 6, 26, .9) 100%); }
+		.mp > *:not(.img):not(.sc-rowflash):not(.sc-ls) { position: relative; }
+		.mp .no { font: 700 15px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); }
+		.mp .name { font: 400 34px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; }
+		.mp .pick { font: 600 16px var(--kb-num); letter-spacing: .12em; color: var(--kb-muted); text-transform: uppercase; margin-left: 12px; }
+		.mp .sc { font: 700 34px var(--kb-num); white-space: nowrap; }
+		.mp .sc .w { color: var(--kb-gold-hi); } .mp .sc .l { color: var(--kb-muted); }
+		.mp .st { justify-self: end; font: 700 13px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
+		.mp .st.done { color: var(--kb-muted); border: 1px solid var(--kb-line); }
+		.mp .st.live { background: var(--kb-red); color: #fff; }
+		.mp .st.next { color: #1a1430; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); }
+		.mp .st.up { color: var(--kb-muted); }
+		.mp.is-live { box-shadow: inset 4px 0 0 var(--kb-red); }
+		.mp.is-live::after { content: ''; position: absolute; inset: 0; pointer-events: none; animation: sc-pulse-inset 2s ease-in-out infinite; }
+		.mp.is-next { box-shadow: inset 4px 0 0 var(--kb-gold); }
+		.mp.is-up .name { color: var(--kb-muted); }
+
+		/* ---------- Rotation d'infos (bas) ---------- */
+		#rot { position: absolute; left: 100px; right: 100px; bottom: 74px; height: 128px; display: flex; align-items: stretch; }
+		#rot .tag { flex: 0 0 250px; display: flex; flex-direction: column; justify-content: center; padding-left: 34px; background: linear-gradient(90deg, var(--kb-indigo), rgba(43, 47, 181, .4)); clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); }
+		#rot .tag .kb-label { color: var(--kb-blue-hi); font-size: 13px; }
+		#rot .tag b { font: 400 36px/1.1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; }
+		#rot .body { position: relative; flex: 1; margin-left: -30px; padding-left: 60px; background: linear-gradient(90deg, rgba(10, 15, 46, .85), rgba(10, 15, 46, .45)); border-top: 1px solid var(--kb-gold-dim); border-bottom: 1px solid var(--kb-gold-dim); overflow: hidden; }
+		#rot .slide { position: absolute; inset: 0 40px 0 60px; display: flex; align-items: center; gap: 46px; opacity: 0; transform: translateY(24px); transition: opacity .7s var(--kb-ease-out), transform .7s var(--kb-ease-out); }
+		#rot .slide.on { opacity: 1; transform: none; }
+		#rot .slide.off { opacity: 0; transform: translateY(-24px); }
+		#rot .prog { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--kb-gold); transform-origin: left; transform: scaleX(0); }
+		#rot .prog.run { animation: prog var(--dur) linear forwards; }
+		@keyframes prog { to { transform: scaleX(1); } }
+		.up-item { display: flex; align-items: center; gap: 16px; min-width: 0; }
+		.up-item .time { font: 700 40px var(--kb-num); color: var(--kb-blue-hi); }
+		.up-item .lbl { font: 600 14px var(--kb-ui); letter-spacing: .18em; color: var(--kb-gold); text-transform: uppercase; white-space: nowrap; }
+		.up-item .vs { font: 400 26px var(--kb-display); text-transform: uppercase; white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+		.up-item .vs i { font-style: normal; color: var(--kb-muted); margin: 0 8px; font-size: .8em; }
+		.up-sep { width: 1px; height: 60px; background: var(--kb-line); flex: 0 0 auto; }
+		.info-big { font: 400 46px var(--kb-display); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+		.info-big b { color: var(--kb-blue-hi); font-weight: 400; }
+		.info-sm { font: 600 20px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 6px; }
+		.txt { min-width: 0; max-width: 100%; }
+		.txt .info-big { overflow: hidden; text-overflow: ellipsis; }
+		#rot.hidden { display: none; }
+		#rot .tag b { display: inline-block; white-space: nowrap; max-width: 168px; overflow: hidden; }
+		#rot .slide.on > * { animation: kb-from-right .7s var(--kb-ease-out) both; }
+		#rot .slide.on > *:nth-child(2) { animation-delay: .08s; } #rot .slide.on > *:nth-child(3) { animation-delay: .16s; }
+		#rot .slide.on > *:nth-child(4) { animation-delay: .24s; } #rot .slide.on > *:nth-child(5) { animation-delay: .32s; }
+		.nm-row { display: flex; align-items: center; gap: 22px; width: 100%; min-width: 0; }
+		.nm-row .t { display: flex; align-items: center; gap: 14px; min-width: 0; max-width: 380px; }
+		.nm-row .t.r { justify-content: flex-end; }
+		.nm-row .n { font: 400 32px/1.25 var(--kb-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.nm-row .vsb { font: 400 30px var(--kb-display); color: var(--kb-gold); }
+		.nm-row .big-score { font: 400 58px/1 var(--kb-display); white-space: nowrap; }
+		.nm-row .big-score i { font-style: normal; color: var(--kb-muted); font-size: .55em; margin: 0 12px; vertical-align: middle; }
+		.nm-row .big-score .lead { color: var(--kb-gold-hi); }
+		.nm-row .meta { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+		.nm-row .meta .time { font: 700 40px/1 var(--kb-num); color: var(--kb-blue-hi); }
+		.nm-row .meta .lbl { font: 600 15px var(--kb-ui); letter-spacing: .18em; color: var(--kb-gold); text-transform: uppercase; white-space: nowrap; }
+		.chips { display: flex; gap: 8px; }
+		.chip { font: 600 17px var(--kb-num); letter-spacing: .06em; text-transform: uppercase; padding: 3px 10px; border: 1px solid var(--kb-line); color: var(--kb-muted); white-space: nowrap; }
+		.chip b { color: var(--kb-text); margin-left: 4px; }
+		.chip.live { border-color: rgba(255, 70, 85, .7); color: #fff; }
+	</style>
+</head>
+<body>
+	<div class="sc-stage" id="stage">
+		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__stars"></div><div class="kb-bg__grid"></div></div>
+		<div id="echo" class="kb-anim kb-anim--left" style="--i:0"></div>
+		<div class="kb-frame sc-frame" style="top:28px !important"></div>
+
+		<div id="brand" class="kb-anim kb-anim--left" style="--i:0">
+			<img class="sc-kbs" id="kbs" alt="">
+			<div><div class="nm" id="tname"></div><div class="kb-label" id="tedition"></div></div>
+		</div>
+		<div id="stagePill" class="kb-anim" style="--i:1"></div>
+
+		<div id="left">
+			<div class="kb-kicker kb-anim" id="kicker" style="--i:2"></div>
+			<div class="kb-title sc-wipe" id="title" style="--i:3"><span class="sc-gleam" id="titleText"></span></div>
+			<div class="kb-rule kb-anim" style="--i:5"></div>
+			<div class="kb-anim" id="message" style="--i:6"></div>
+			<div id="cdWrap" class="kb-anim" style="--i:7">
+				<div class="kb-label" id="cdLabel"></div>
+				<div class="sc-digits" id="cdText"></div>
+			</div>
+		</div>
+
+		<div class="kb-panel kb-anim kb-anim--right" id="series" style="--i:4"></div>
+
+		<div id="rot" class="kb-anim" style="--i:9">
+			<div class="tag"><span class="kb-label" id="rotKick">En attendant</span><b id="rotTitle"></b></div>
+			<div class="body" id="rotBody"><i class="prog" id="prog"></i></div>
+		</div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/scenes.js"></script>
+	<script>
+		const S = KBScenes, $ = KB.$, esc = KB.esc;
+		const stage = $('#stage');
+		$('#kbs').src = KB.img.kbs;
+		S.ambient(stage, { after: $('#echo') });
+		S.shineLogo($('#kbs'));
+
+		let cdVisible = true;
+
+		function seriesHTML(m) {
+			const s = KB.sides(m), score = KB.seriesScore(m);
+			const L = score[s.leftKey], R = score[s.rightKey];
+			const tm = (team, key) => `<div class="tm" style="--c:${esc((team && team.color) || 'var(--kb-blue)')}">${KB.teamLogo(team, 96)}<div class="nm" data-fit="16">${esc(S.teamName(team))}</div><i class="bar"></i></div>`;
+			const maps = (m.maps || []);
+			const nextIdx = maps.findIndex((x) => x.status !== 'done');
+			const rows = maps.map((mp, i) => {
+				const info = KB.map(mp.map);
+				const sl = mp[s.leftKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0, sr = mp[s.rightKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0;
+				const pickTeam = mp.pickedBy === 'A' ? KB.team(m.teamA) : mp.pickedBy === 'B' ? KB.team(m.teamB) : null;
+				const pick = mp.pickedBy === 'decider' ? 'Decider' : pickTeam ? `Pick ${esc(pickTeam.tag || pickTeam.name)}` : '';
+				let st, cls, sc = '';
+				if (mp.status === 'done') {
+					st = '<span class="st done">Terminée</span>'; cls = 'is-done';
+					const wl = mp.winner ? (mp.winner === s.leftKey ? ['w', 'l'] : ['l', 'w']) : ['', ''];
+					sc = `<span class="sc"><span class="${wl[0]}">${sl}</span> – <span class="${wl[1]}">${sr}</span></span>`;
+				} else if (mp.status === 'live') {
+					st = '<span class="st live sc-live">En cours</span>'; cls = 'is-live';
+					sc = `<span class="sc">${sl} – ${sr}</span>`;
+				} else if (i === nextIdx) { st = '<span class="st next">À suivre</span>'; cls = 'is-next'; }
+				else { st = '<span class="st up">À venir</span>'; cls = 'is-up'; }
+				return `<div class="mp ${cls}" style="${maps.length > 3 ? 'height:54px' : ''}"><div class="img" style="${info && info.listView ? `background-image:url('${esc(info.listView)}')` : ''}"></div>
+					<span class="no">MAP ${i + 1}</span><span><span class="name">${esc(mp.map || 'À définir')}</span>${pick ? `<span class="pick">${pick}</span>` : ''}</span>${sc || '<span></span>'}${st}</div>`;
+			}).join('');
+			return `<div class="hd"><span class="kb-kicker">Série en cours</span><span class="kb-label">${esc(m.stage || '')}${m.format ? ' · ' + esc(KB.formatLabel(m.format)) : ''}</span></div>
+				<div class="teams">${tm(s.left)}<div class="score"><span class="${L > R ? 'lead' : ''}">${L}</span><span class="dash">–</span><span class="${R > L ? 'lead' : ''}">${R}</span></div>${tm(s.right)}</div>
+				<div class="maps">${rows || '<div class="kb-label" style="text-align:center">Maps à venir</div>'}</div>`;
+		}
+
+		function render() {
+			const t = S.tournament(), tx = S.texts().brb, m = KB.rep.match.value;
+			$('#tname').textContent = t.name || 'KB SERIES';
+			$('#tedition').textContent = t.edition || '';
+			S.setText($('#kicker'), tx.kicker || '');
+			S.setText($('#titleText'), tx.title || 'Pause');
+			$('#echo').textContent = tx.title || 'Pause';
+			S.setText($('#message'), tx.message || '');
+			$('#message').style.display = tx.message ? '' : 'none';
+			cdVisible = !!tx.showCountdown;
+
+			const hasMatch = tx.showSeries && m && (m.teamA || m.teamB);
+			$('#series').classList.toggle('hidden', !hasMatch);
+			$('#left').classList.toggle('solo', !hasMatch);
+			stage.classList.toggle('solo', !hasMatch);
+			$('#stagePill').innerHTML = '';
+			if (hasMatch) {
+				$('#series').innerHTML = seriesHTML(m);
+				// Changement de score de série / de map → pop lumineux
+				const sc = KB.seriesScore(m);
+				if (S.changed('series', [m.teamA, m.teamB, sc.A, sc.B])) S.bump($('#series .score'));
+				(m.maps || []).forEach((mp, i) => {
+					if (!S.changed('map' + i, [mp.map, mp.scoreA, mp.scoreB, mp.status, mp.winner])) return;
+					const el = KB.$$('#series .mp')[i];
+					if (el) { el.insertAdjacentHTML('beforeend', '<i class="sc-rowflash"></i>'); KB.$$('.sc, .st', el).forEach(S.bump); }
+				});
+				const lv = KB.$('#series .mp.is-live'); if (lv) lv.insertAdjacentHTML('beforeend', '<i class="sc-ls"></i>');
+			}
+			S.fitAll(stage);
+			S.fit($('#title'), 80, true);
+			buildSlides();
+			cd.refresh();
+		}
+
+		const cd = S.countdown((st) => {
+			$('#cdWrap').classList.toggle('hidden', !cdVisible || st.state === 'none');
+			const txt = $('#cdText');
+			txt.classList.toggle('is-zero', st.state === 'zero');
+			txt.classList.toggle('is-urgent', st.state === 'running' && st.ms <= 60000);
+			$('#cdLabel').textContent = st.state === 'zero' ? '' : (S.texts().brb.countdownLabel || 'Reprise dans');
+			$('#cdLabel').style.display = st.state === 'zero' ? 'none' : '';
+			txt.textContent = st.text;
+		});
+
+		/* ---------- Rotation d'infos (personnalisable : replicant scenesRotation) ---------- */
+		let slides = [], cur = -1, timer = null, idsKey = '';
+		const teamShort = (t) => esc((t && (t.tag || t.name)) || 'TBD');
+		function slideHTML(it) {
+			const t = S.tournament();
+			if (it.type === 'text') {
+				if (!it.title && !it.subtitle) return null;
+				return `<div class="txt"><div class="info-big">${esc(it.title || '')}</div>${it.subtitle ? `<div class="info-sm">${esc(it.subtitle)}</div>` : ''}</div>`;
+			}
+			if (it.type === 'upcoming') {
+				const up = (KB.rep.schedule.value || []).filter((r) => r.status !== 'done').slice(0, 3);
+				if (!up.length) return null;
+				return up.map((r) => {
+					const a = KB.team(r.teamA), b = KB.team(r.teamB);
+					const vs = (a || b) ? `${teamShort(a)}<i>vs</i>${teamShort(b)}` : 'À déterminer';
+					return `<div class="up-item"><span class="time">${esc(r.time || '')}</span><div><div class="lbl">${esc(r.label || '')}${r.status === 'live' ? ' · <span style="color:var(--kb-red)">En cours</span>' : ''}</div><div class="vs">${vs}</div></div></div>`;
+				}).join('<i class="up-sep"></i>');
+			}
+			if (it.type === 'nextMatch') {
+				const nm = S.upcomingMatch();
+				if (!nm) return null;
+				return `<div class="nm-row"><div class="t r"><span class="n">${esc(S.teamName(nm.left))}</span>${KB.teamLogo(nm.left, 62)}</div><span class="vsb">VS</span><div class="t">${KB.teamLogo(nm.right, 62)}<span class="n">${esc(S.teamName(nm.right))}</span></div>
+					<div class="meta">${nm.time ? `<span class="time">${esc(nm.time)}</span>` : ''}<span class="lbl">${esc(nm.stage || '')}</span></div></div>`;
+			}
+			if (it.type === 'series') {
+				const m = KB.rep.match.value;
+				if (!m || !(m.teamA || m.teamB)) return null;
+				const sd = KB.sides(m), sc = KB.seriesScore(m);
+				const L = sc[sd.leftKey], R = sc[sd.rightKey];
+				const maps = (m.maps || []).filter((x) => x.status !== 'upcoming').map((x) => {
+					const a = x[sd.leftKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0, b = x[sd.rightKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0;
+					return `<span class="chip ${x.status === 'live' ? 'live' : ''}">${esc(x.map || '?')} <b>${a}–${b}</b></span>`;
+				}).join('');
+				return `<div class="nm-row"><div class="t r"><span class="n">${esc(S.teamName(sd.left))}</span>${KB.teamLogo(sd.left, 62)}</div><span class="big-score"><span class="${L > R ? 'lead' : ''}">${L}</span><i>–</i><span class="${R > L ? 'lead' : ''}">${R}</span></span><div class="t">${KB.teamLogo(sd.right, 62)}<span class="n">${esc(S.teamName(sd.right))}</span></div>
+					<div class="meta"><span class="lbl">${esc(m.stage || '')} · ${esc(KB.formatLabel(m.format))}</span><div class="chips">${maps}</div></div></div>`;
+			}
+			if (it.type === 'tournament') {
+				return `<div class="txt"><div class="info-big">${esc(t.subtitle || 'Tournoi Valorant 5v5')} · <b>${esc(t.dates || '')}</b></div><div class="info-sm">${esc(t.location || '')}${t.hashtag ? ' · ' + esc(t.hashtag) : ''}</div></div>`;
+			}
+			return null;
+		}
+		function buildSlides() {
+			const list = [];
+			for (const it of S.rotation()) {
+				if (!it.enabled) continue;
+				const html = slideHTML(it);
+				if (!html) continue;
+				const def = S.ROTATION_TYPES[it.type];
+				list.push({ id: it.id, kick: it.kicker || def.kicker, title: it.label || def.label, html, dur: it.duration * 1000 });
+			}
+			$('#rot').classList.toggle('hidden', !list.length);
+			const body = $('#rotBody');
+			const newIds = list.map((x) => x.id + ':' + x.dur).join('|');
+			const curId = slides[cur] && slides[cur].id;
+			if (newIds === idsKey) {
+				// Même liste : on met juste à jour le contenu, sans relancer le minuteur
+				list.forEach((sl, i) => { const el = body.querySelector(`.slide[data-i="${i}"]`); if (el && el.dataset.html !== sl.html) { el.innerHTML = sl.html; el.dataset.html = sl.html; if (i === cur) S.bump(el); } });
+				slides = list;
+				if (slides[cur]) { S.setText($('#rotKick'), slides[cur].kick); S.setText($('#rotTitle'), slides[cur].title); }
+				return;
+			}
+			idsKey = newIds; slides = list;
+			KB.$$('.slide', body).forEach((el) => el.remove());
+			slides.forEach((sl, i) => { body.insertAdjacentHTML('beforeend', `<div class="slide" data-i="${i}"></div>`); const el = body.lastElementChild; el.innerHTML = sl.html; el.dataset.html = sl.html; });
+			KB.$$('.info-big', body).forEach((el) => S.fit(el, 28, true));
+			clearTimeout(timer);
+			if (!slides.length) return;
+			const keep = slides.findIndex((x) => x.id === curId);
+			cur = -1;
+			show(keep >= 0 ? keep : 0);
+		}
+		function show(i) {
+			const changed = i !== cur;
+			cur = i;
+			const els = KB.$$('#rotBody .slide');
+			els.forEach((el, j) => { const was = el.classList.contains('on'); el.classList.toggle('on', j === i); el.classList.toggle('off', j !== i && was); });
+			$('#rotKick').textContent = slides[i].kick; $('#rotTitle').textContent = slides[i].title; S.fit($('#rotTitle'), 18, true);
+			if (changed) S.bump($('#rotTitle'));
+			const p = $('#prog'); p.style.setProperty('--dur', slides[i].dur + 'ms'); p.classList.remove('run'); void p.offsetWidth; p.classList.add('run');
+			clearTimeout(timer);
+			timer = setTimeout(() => show((cur + 1) % slides.length), slides[i].dur);
+		}
+
+		KB.watch(['tournament', 'teams', 'match', 'schedule', 'countdown', 'valorantData', S.rep, S.rotRep], render);
+		S.enter(stage);
+	</script>
+</body>
+</html>

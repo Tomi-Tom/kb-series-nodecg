@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>Bracket — Phase finale</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<style>
+		#root { position: absolute; inset: 0; visibility: hidden; }
+		.fade { opacity: 0; }
+		.kb-in .fade { animation: bk-fade .6s ease forwards; animation-delay: var(--d, 0s); }
+		.kb-out .fade { animation: kb-fade-out .4s ease forwards !important; }
+		.settled .kb-anim, .settled .fade { animation: none !important; opacity: 1 !important; }
+		@keyframes bk-fade { to { opacity: 1; } }
+		.kb-bg__art { opacity: .32; animation: bk-drift 40s ease-in-out infinite alternate; }
+		@keyframes bk-drift { from { transform: scale(1.02) translate(0, 0); } to { transform: scale(1.07) translate(-14px, -8px); } }
+
+		/* ---------- En-tête ---------- */
+		#head { position: absolute; left: 96px; right: 96px; top: 58px; height: 120px; display: flex; align-items: center; gap: 28px; }
+		#head .logo { width: 116px; height: 116px; }
+		#head .logoWrap { position: relative; width: 116px; height: 116px; flex: 0 0 auto; }
+		#head .logoWrap::after { content: ''; position: absolute; inset: -10px; border-radius: 50%; background: radial-gradient(circle, rgba(245, 196, 69, .28), transparent 65%); animation: bk-breathe 5s ease-in-out infinite; z-index: -1; }
+		@keyframes bk-breathe { 0%, 100% { opacity: .5; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
+		#head .txt { display: flex; flex-direction: column; gap: 6px; }
+		#head .kb-title { font-size: 78px; }
+		#head .right { margin-left: auto; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+		#head .dates { font: 400 44px/1 var(--kb-display); color: var(--kb-blue-hi); letter-spacing: .02em; }
+		#headRule { position: absolute; left: 96px; right: 96px; top: 190px; overflow: hidden; transform-origin: center; }
+		.kb-in #headRule { animation: bk-grow .9s var(--kb-ease-out) .3s both; }
+		.settled #headRule { animation: none; }
+		.kb-out #headRule { animation: kb-fade-out .4s ease forwards; }
+		#headRule::after { content: ''; position: absolute; top: -4px; bottom: -4px; width: 220px; left: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); opacity: .8; transform: translateX(-260px); animation: bk-sweep 7s ease-in-out 3s infinite; }
+		@keyframes bk-sweep { 0% { transform: translateX(-260px); } 45%, 100% { transform: translateX(1990px); } }
+		@keyframes bk-grow { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
+
+		/* ---------- Colonnes ---------- */
+		.colhead { position: absolute; top: 210px; display: flex; align-items: center; gap: 12px; font: 700 19px var(--kb-ui); letter-spacing: .26em; text-transform: uppercase; color: var(--kb-text); white-space: nowrap; }
+		.colhead .sub { font: 600 13px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); margin-left: 6px; }
+		.colhead svg { width: 34px; height: 34px; flex: 0 0 auto; filter: drop-shadow(0 0 8px rgba(245, 196, 69, .35)); }
+
+		/* ---------- Matchs ---------- */
+		.match { position: absolute; }
+		.match > .inner { transition: transform .5s var(--kb-ease-out), filter .5s; }
+		.mhead { height: 28px; display: flex; align-items: center; gap: 10px; padding: 0 4px 0 2px; font: 700 17px var(--kb-num); letter-spacing: .18em; text-transform: uppercase; color: var(--kb-gold); white-space: nowrap; }
+		.mhead .time { color: var(--kb-muted); letter-spacing: .1em; }
+		.mhead .stat { margin-left: auto; }
+		.mhead .st { color: var(--kb-muted); font-size: 15px; letter-spacing: .2em; }
+		.live-badge { display: inline-flex; align-items: center; gap: 7px; padding: 2px 10px 2px 8px; background: var(--kb-red); color: #fff; font: 800 15px var(--kb-ui); letter-spacing: .2em; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); animation: kb-pop .45s var(--kb-ease-out); }
+		.live-badge i { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: bk-blink 1.1s ease-in-out infinite; }
+		@keyframes bk-blink { 50% { opacity: .2; } }
+
+		.rows { position: relative; display: flex; flex-direction: column; gap: 4px; filter: drop-shadow(0 8px 20px rgba(0, 0, 0, .45)); }
+		.trow { --tc: var(--kb-blue); position: relative; height: var(--rh, 56px); display: flex; align-items: center; gap: 14px; padding-left: 16px; overflow: hidden;
+			background: linear-gradient(90deg, rgba(27, 35, 102, .92), rgba(10, 15, 46, .94)); border: 1px solid rgba(94, 196, 255, .22); transition: opacity .6s ease, border-color .6s; }
+		.trow:first-child { clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 14px); }
+		.trow:last-child { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%); }
+		.trow::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--tc); transition: background .6s; }
+		.trow .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; }
+		.trow .logo { flex: 0 0 auto; display: grid; place-items: center; width: calc(var(--rh, 56px) - 16px); }
+		.trow .name { flex: 1; min-width: 0; font: 700 calc(var(--rh, 56px) * .5)/1 var(--kb-num); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .6s; }
+		.trow .name.long { font-size: calc(var(--rh, 56px) * .42); }
+		.trow .score { position: relative; flex: 0 0 auto; align-self: stretch; width: calc(var(--rh, 56px) + 2px); display: grid; place-items: center; font: 400 calc(var(--rh, 56px) * .6)/1 var(--kb-display); background: rgba(255, 255, 255, .05); border-left: 1px solid rgba(94, 196, 255, .2); color: var(--kb-text); overflow: hidden; }
+		.trow .score::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, var(--kb-gold-hi), var(--kb-gold)); transform: scaleY(0); transform-origin: bottom; transition: transform .5s var(--kb-ease-out); }
+		.trow .score b { position: relative; font-weight: 400; transition: color .4s; }
+		.trow.win { border-color: var(--kb-gold-dim); }
+		.trow.win .score::before { transform: none; }
+		.trow.win .score b { color: #1a1430; }
+		.trow.lose { opacity: .42; }
+		.trow.lose .name { color: var(--kb-muted); }
+		.trow.tbd { --tc: rgba(140, 170, 255, .25); background: rgba(10, 15, 46, .7); border-style: dashed; border-color: rgba(140, 170, 255, .25); }
+		.trow.tbd .name { color: var(--kb-muted); font-weight: 600; letter-spacing: .14em; font-size: calc(var(--rh, 56px) * .36); }
+		.trow.tbd .score b { color: transparent; }
+		.tbd-mark { width: 60%; aspect-ratio: 1; border: 2px dashed rgba(140, 170, 255, .35); transform: rotate(45deg); animation: bk-spin 12s linear infinite; }
+		@keyframes bk-spin { to { transform: rotate(405deg); } }
+
+		/* Animations de changement de donnée */
+		.trow .who.enter { animation: bk-enter .6s var(--kb-ease-out); }
+		@keyframes bk-enter { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+		.trow .score b.bump { animation: bk-bump .6s var(--kb-ease-out); }
+		@keyframes bk-bump { 0% { transform: translateY(70%); opacity: 0; } 55% { transform: scale(1.3); opacity: 1; } 100% { transform: none; } }
+		.trow .flash { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 20%, rgba(255, 228, 150, .55) 50%, transparent 80%); transform: translateX(-110%); }
+		.trow .flash.go { animation: bk-flash .9s var(--kb-ease-inout); }
+		@keyframes bk-flash { to { transform: translateX(110%); } }
+
+		.match.live .rows::after { content: ''; position: absolute; inset: -3px; border: 2px solid var(--kb-red); box-shadow: 0 0 22px rgba(255, 70, 85, .55); pointer-events: none;
+			clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+		.match.live .rows::before { content: ''; position: absolute; z-index: 2; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255, 70, 85, .2), transparent) no-repeat; background-size: 28% 100%; animation: bk-scan 2.8s ease-in-out infinite; }
+		@keyframes bk-scan { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+		.match.live.focus > .inner { transform: scale(1.035); }
+		.match.live.focus { z-index: 3; }
+		.match.live.focus .rows::after { animation: bk-pulse 1.6s ease-in-out infinite; }
+		@keyframes bk-pulse { 50% { box-shadow: 0 0 40px rgba(255, 70, 85, .9); } }
+		.dimmed .match:not(.live) > .inner { filter: saturate(.7) brightness(.8); }
+
+		/* Finale */
+		.match.final .rows { filter: drop-shadow(0 0 26px rgba(245, 196, 69, .25)) drop-shadow(0 10px 24px rgba(0, 0, 0, .5)); }
+		.match.final .trow { border-color: rgba(245, 196, 69, .45); }
+		.match.final .mhead { font-size: 19px; }
+
+		/* Trophée / champion au-dessus de la finale */
+		#trophy { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; }
+		#trophy .cup { position: relative; width: 112px; height: 112px; }
+		#trophy .cup::before { content: ''; position: absolute; inset: -46px; border-radius: 50%; background: radial-gradient(circle, rgba(245, 196, 69, .38), rgba(245, 196, 69, .08) 45%, transparent 68%); animation: bk-breathe 4s ease-in-out infinite; }
+		#trophy .cup svg.main { position: relative; width: 112px; height: 112px; filter: drop-shadow(0 0 18px rgba(245, 196, 69, .5)); animation: bk-float 5s ease-in-out infinite; }
+		@keyframes bk-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+		.spark { position: absolute; width: 18px; height: 18px; opacity: 0; animation: bk-spark 3.2s ease-in-out infinite; }
+		.spark svg { width: 100%; height: 100%; display: block; }
+		@keyframes bk-spark { 0%, 100% { opacity: 0; transform: scale(.2) rotate(0deg); } 18% { opacity: 1; transform: scale(1) rotate(45deg); } 36% { opacity: 0; transform: scale(.3) rotate(90deg); } }
+		#trophy .champ { margin-top: 6px; font: 700 16px var(--kb-ui); letter-spacing: .4em; color: var(--kb-gold); text-transform: uppercase; }
+		#trophy .champName { font: 400 46px/1.05 var(--kb-display); text-transform: uppercase; color: var(--kb-gold-hi); text-shadow: 0 0 18px rgba(245, 196, 69, .5); max-width: 520px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
+		#trophy .champBox { animation: kb-pop .7s var(--kb-ease-out); }
+
+		/* ---------- Connecteurs ---------- */
+		#wires { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: visible; pointer-events: none; }
+		#wires path { fill: none; stroke-width: 3; stroke-linejoin: miter; }
+		#wires .base { stroke: rgba(140, 170, 255, .22); }
+		#wires .lit { stroke: var(--kb-blue-hi); filter: url(#glow); opacity: 0; transition: opacity .4s; }
+		#wires .lit.gold { stroke: var(--kb-gold-hi); filter: url(#glowGold); }
+		#wires .lit.on { opacity: 1; }
+		/* Tracé progressif : pathLength = 1 */
+		#wires .base, #wires .lit { stroke-dasharray: 1; stroke-dashoffset: 1; }
+		.kb-in #wires .base, .kb-in #wires .lit { animation: bk-draw .55s var(--kb-ease-out) forwards; animation-delay: var(--wd, 1s); }
+		.settled #wires .base, .settled #wires .lit { animation: none; stroke-dashoffset: 0; }
+		.settled #wires .lit.redraw { animation: bk-draw .7s var(--kb-ease-out) forwards; }
+		@keyframes bk-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+		/* Lumière qui circule (vers le match LIVE : rapide et vive ; sinon : lente et discrète) */
+		#wires .flow { stroke-width: 4; stroke-linecap: round; stroke-dasharray: .1 .9; stroke-dashoffset: .1; opacity: 0; transition: opacity .6s; }
+		.settled #wires .flow.idle { opacity: .55; stroke: #fff; animation: bk-flow 4.5s linear infinite; animation-delay: var(--fd, 0s); }
+		.settled #wires .flow.hot { opacity: 1; stroke: #fff; filter: url(#glowRed); stroke-dasharray: .14 .86; animation: bk-flow 1.3s linear infinite; }
+		@keyframes bk-flow { from { stroke-dashoffset: .14; } to { stroke-dashoffset: -.86; } }
+
+		/* ---------- Pastilles bas de page ---------- */
+		.phase { position: absolute; top: 892px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+		.phase .bar { width: 100%; height: 16px; border: 2px solid var(--kb-gold); border-top: 0; border-left: 0; border-right: 0; position: relative; }
+		.phase .bar::before, .phase .bar::after { content: ''; position: absolute; bottom: -2px; width: 22px; height: 2px; background: var(--kb-gold); }
+		.phase .bar::before { left: -18px; transform-origin: right; transform: rotate(-38deg); }
+		.phase .bar::after { right: -18px; transform-origin: left; transform: rotate(38deg); }
+		.phase .kb-pill { position: relative; overflow: hidden; white-space: nowrap; }
+		.phase .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-80px) skewX(-20deg); animation: bk-pill 6s ease-in-out infinite; animation-delay: var(--pd, 4s); }
+		@keyframes bk-pill { 0% { transform: translateX(-80px) skewX(-20deg); } 30%, 100% { transform: translateX(520px) skewX(-20deg); } }
+
+		/* ---------- Partenaires ---------- */
+		#partners { position: absolute; left: 0; right: 0; bottom: 46px; display: flex; justify-content: center; align-items: center; gap: 22px; font: 600 14px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-muted); }
+		#partners img { height: 30px; opacity: .9; }
+		#partners .sep { width: 6px; height: 6px; background: var(--kb-gold); transform: rotate(45deg); }
+	</style>
+</head>
+<body>
+	<div id="root">
+		<div class="kb-bg fade"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div></div>
+		<div class="kb-frame fade" style="--d:.1s"></div>
+
+		<div id="head">
+			<div class="logoWrap kb-anim kb-anim--pop" style="--d:.1s;--i:0"><img class="logo kb-logo" src="../shared/img/kbs-logo.png" alt=""></div>
+			<div class="txt">
+				<div class="kb-kicker kb-anim kb-anim--left" style="--d:.1s;--i:1" id="kicker">KB SERIES · Édition spéciale Epitech</div>
+				<div class="kb-title kb-anim kb-anim--left" style="--d:.1s;--i:2">Phase finale</div>
+			</div>
+			<div class="right">
+				<div class="dates kb-anim kb-anim--right" style="--d:.1s;--i:2" id="dates"></div>
+				<div class="kb-label kb-anim kb-anim--right" style="--d:.1s;--i:3">Tournoi Valorant 5v5</div>
+			</div>
+		</div>
+		<div id="headRule" class="kb-rule kb-rule--gold"></div>
+
+		<div id="board"></div>
+
+		<div id="partners" class="fade" style="--d:2.6s">
+			<span>Présenté par</span><img src="../shared/img/cycom-alpha.png" alt=""><span class="sep"></span><img src="../shared/img/epitech-alpha.png" alt="">
+		</div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/bracket.js"></script>
+	<script>
+		// ---------- Icônes (façon affiche) ----------
+		let uid = 0;
+		const ICON = {
+			group: `<svg viewBox="0 0 64 64"><defs><linearGradient id="gGrp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3e2b0"/><stop offset="1" stop-color="#c9b274"/></linearGradient></defs>
+				<g fill="#6b6a7a"><circle cx="11" cy="24" r="5"/><path d="M3 46c0-9 4-14 8-14s8 5 8 14z"/><circle cx="53" cy="24" r="5"/><path d="M45 46c0-9 4-14 8-14s8 5 8 14z"/></g>
+				<g fill="#e9dcae"><circle cx="21" cy="21" r="6"/><path d="M12 48c0-11 4-17 9-17s9 6 9 17z"/><circle cx="43" cy="21" r="6"/><path d="M34 48c0-11 4-17 9-17s9 6 9 17z"/></g>
+				<g fill="url(#gGrp)"><circle cx="32" cy="17" r="7.5"/><path d="M20 50c0-13 5-21 12-21s12 8 12 21z"/></g></svg>`,
+			medal: `<svg viewBox="0 0 64 64"><defs><radialGradient id="gMed" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ffc27a"/><stop offset=".6" stop-color="#e0822e"/><stop offset="1" stop-color="#a5541a"/></radialGradient></defs>
+				<path d="M16 4h11l9 24h-11z" fill="#c4303c"/><path d="M48 4H37l-9 24h11z" fill="#ff4655"/>
+				<circle cx="32" cy="43" r="16" fill="url(#gMed)"/><circle cx="32" cy="43" r="11" fill="none" stroke="#8a4614" stroke-width="2" opacity=".6"/></svg>`,
+			trophy: (c1, c2, c3, cls = '') => {
+				const id = 'gT' + (++uid);
+				return `<svg class="${cls}" viewBox="0 0 64 64"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient></defs>
+				<g fill="none" stroke="url(#${id})" stroke-width="4.5"><path d="M17 13H8v5c0 8 6 13 12 13"/><path d="M47 13h9v5c0 8-6 13-12 13"/></g>
+				<g fill="url(#${id})"><path d="M15 6h34v14c0 11-7 19-17 19S15 31 15 20z"/><path d="M28 38h8v9h-8z"/><path d="M21 47h22l3 7H18z"/><rect x="16" y="54" width="32" height="5" rx="1"/></g>
+				<path d="M21 10v9c0 6 3 11 8 13" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+			},
+			star: `<svg viewBox="0 0 20 20"><path d="M10 0C10.8 6 14 9.2 20 10 14 10.8 10.8 14 10 20 9.2 14 6 10.8 0 10 6 9.2 9.2 6 10 0z" fill="#fff6d6"/></svg>`,
+		};
+		ICON.silver = (cls) => ICON.trophy('#ffffff', '#c9ced9', '#7d8496', cls);
+		ICON.gold = (cls) => ICON.trophy('#ffe9a6', '#f5c445', '#e07a20', cls);
+
+		// ---------- Géométrie (1920×1080) ----------
+		const RH = 56, GAP = 4, HEAD = 28, FRH = 66;
+		const COL = { q: { x: 96, w: 430 }, s: { x: 650, w: 440 }, f: { x: 1230, w: 500 } };
+		const QY = [338, 488, 638, 788];
+		const SY = [(QY[0] + QY[1]) / 2, (QY[2] + QY[3]) / 2];
+		const FY = (SY[0] + SY[1]) / 2;
+		const TY = 822;
+
+		// Matchs affichés : clé → chemin dans playoffs + géométrie + chronologie d'entrée
+		const SLOTS = [
+			...QY.map((cy, i) => ({ key: 'q' + i, get: (p) => (p.quarters || [])[i], x: COL.q.x, w: COL.q.w, cy, rh: RH, label: 'QF' + (i + 1), d: .55, i: i * 1.5, anim: 'kb-anim--left' })),
+			...SY.map((cy, i) => ({ key: 's' + i, get: (p) => (p.semis || [])[i], x: COL.s.x, w: COL.s.w, cy, rh: RH, label: 'Demi-finale ' + (i + 1), d: 1.25, i: i * 1.5, anim: 'kb-anim--left' })),
+			{ key: 'f', get: (p) => p.final, x: COL.f.x, w: COL.f.w, cy: FY, rh: FRH, label: 'Finale', cls: 'final', d: 1.85, i: 0, anim: 'kb-anim--pop' },
+			{ key: 't', get: (p) => p.third, x: COL.f.x + 60, w: COL.f.w - 60, cy: TY, rh: RH, label: 'Match de classement', cls: 'third', d: 2.2, i: 0, anim: 'kb-anim--right' },
+		];
+		const slotY = (cy, side, rh = RH) => cy + (side === 'a' ? -1 : 1) * (rh + GAP) / 2;
+		// Connecteurs : source → cible (côté a/b)
+		const LINKS = [
+			{ from: 'q0', to: 's0', side: 'a', wd: 1.0 }, { from: 'q1', to: 's0', side: 'b', wd: 1.08 },
+			{ from: 'q2', to: 's1', side: 'a', wd: 1.16 }, { from: 'q3', to: 's1', side: 'b', wd: 1.24 },
+			{ from: 's0', to: 'f', side: 'a', wd: 1.6, gold: true }, { from: 's1', to: 'f', side: 'b', wd: 1.7, gold: true },
+		];
+		const SLOT = Object.fromEntries(SLOTS.map((s) => [s.key, s]));
+
+		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
+		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: { groups: { visible: false }, bracket: { visible: false }, highlightLive: true } });
+
+		const root = KB.$('#root');
+		const board = KB.$('#board');
+		const presence = KB.presence(root);
+		const restart = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+		let settleTimer = null;
+		let prev = {};       // dernier état rendu, pour animer les changements
+		let animateChanges = false;
+
+		// ---------- Squelette (construit une seule fois) ----------
+		function wirePath(x1, y1, x2, y2) {
+			const mx = (x1 + x2) / 2, b = Math.min(10, Math.abs(y2 - y1) / 2), dir = Math.sign(y2 - y1);
+			return dir === 0 ? `M${x1} ${y1}H${x2}` : `M${x1} ${y1}H${mx - b}L${mx} ${y1 + dir * b}V${y2 - dir * b}L${mx + b} ${y2}H${x2}`;
+		}
+		function rowHTML() {
+			return `<div class="trow tbd"><div class="who"><div class="logo"></div><div class="name"></div></div><div class="score"><b></b></div><div class="flash"></div></div>`;
+		}
+		function build() {
+			let html = '';
+			html += `<div class="colhead kb-anim" style="left:${COL.q.x}px;--d:.4s">${ICON.group}Quarts de finale</div>`;
+			html += `<div class="colhead kb-anim" style="left:${COL.s.x}px;--d:1.1s">${ICON.medal}Demi-finales</div>`;
+			html += `<div class="colhead kb-anim" style="left:${COL.f.x}px;--d:1.7s">${ICON.gold()}Grande finale</div>`;
+
+			html += `<svg id="wires" class="fade" style="--d:.9s"><defs>
+				<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+				<filter id="glowGold" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+				<filter id="glowRed" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ff4655" flood-opacity="1"/></filter></defs>
+				${LINKS.map((l, i) => `<g data-link="${i}" style="--wd:${l.wd}s;--fd:${i * .6}s"><path class="base" pathLength="1"/><path class="lit${l.gold ? ' gold' : ''}" pathLength="1"/><path class="flow" pathLength="1"/></g>`).join('')}</svg>`;
+
+			for (const s of SLOTS) {
+				const top = s.cy - s.rh - GAP / 2 - HEAD;
+				html += `<div class="match kb-anim ${s.anim} ${s.cls || ''}" data-key="${s.key}" style="left:${s.x}px;top:${top}px;width:${s.w}px;--rh:${s.rh}px;--d:${s.d}s;--i:${s.i}">
+					<div class="inner"><div class="mhead"><span class="lbl"></span><span class="time"></span><span class="stat"></span></div>
+					<div class="rows">${rowHTML()}${rowHTML()}</div></div></div>`;
+			}
+			html += `<div class="colhead kb-anim kb-anim--right" style="left:${COL.f.x + 60}px;top:${TY - RH - GAP / 2 - HEAD - 46}px;--d:2.15s;font-size:17px">${ICON.silver()}Petite finale<span class="sub">Perdants des demies</span></div>`;
+
+			const fTop = FY - FRH - GAP / 2 - HEAD;
+			const sparks = [[-34, 8, 0], [118, 20, .7], [96, -14, 1.5], [-12, 78, 2.2], [126, 84, 2.8]]
+				.map(([x, y, dl]) => `<span class="spark" style="left:${x}px;top:${y}px;animation-delay:${dl}s">${ICON.star}</span>`).join('');
+			html += `<div id="trophy" class="kb-anim kb-anim--pop" style="left:${COL.f.x}px;width:${COL.f.w}px;top:260px;height:${fTop - 270}px;--d:2.0s">
+				<div class="cup">${ICON.gold('main')}${sparks}</div><div class="champBox"></div></div>`;
+
+			html += `<div class="phase kb-anim" style="left:${COL.q.x}px;width:${COL.q.w}px;--d:2.35s;--pd:4s"><div class="bar"></div><span class="kb-pill">Online</span></div>`;
+			html += `<div class="phase kb-anim" style="left:${COL.s.x}px;width:${COL.f.x + COL.f.w - COL.s.x}px;--d:2.45s;--pd:5.2s"><div class="bar"></div><span class="kb-pill">Présentiel · Campus KB</span></div>`;
+			board.innerHTML = html;
+		}
+
+		// ---------- Mise à jour en place ----------
+		function updateRow(rowEl, m, side, rh, key) {
+			const id = m[side] || null;
+			const t = KB.team(id);
+			const name = id ? (t ? t.name : String(id).toUpperCase()) : 'À déterminer';
+			const hasScore = m.status !== 'upcoming' || !!m.winner;
+			const score = id && hasScore ? String(side === 'a' ? (m.scoreA ?? 0) : (m.scoreB ?? 0)) : (id ? '–' : '');
+			const state = !id ? 'tbd' : m.winner ? (m.winner === side ? 'win' : 'lose') : '';
+			const sig = [id, name, t && t.logo, t && t.color].join('|');
+			const p = prev[key] || {};
+			const who = KB.$('.who', rowEl);
+			if (p.sig !== sig) {
+				KB.$('.logo', who).innerHTML = id ? KB.teamLogo(t || { name, tag: id }, rh - 16) : `<div class="tbd-mark" style="width:${(rh - 16) * .55}px"></div>`;
+				const nm = KB.$('.name', who);
+				nm.textContent = name;
+				nm.classList.toggle('long', !!id && name.length > (rh > 60 ? 22 : 19));
+				rowEl.style.setProperty('--tc', (t && t.color) || '#3b8fe6');
+				if (animateChanges && p.id !== id) restart(who, 'enter');
+			}
+			const b = KB.$('.score b', rowEl);
+			if (b.textContent !== score) {
+				b.textContent = score;
+				if (animateChanges && p.score !== undefined && score !== '' && score !== '–') restart(b, 'bump');
+			}
+			rowEl.classList.remove('win', 'lose', 'tbd');
+			if (state) rowEl.classList.add(state);
+			if (animateChanges && state === 'win' && p.state !== 'win') restart(KB.$('.flash', rowEl), 'go');
+			prev[key] = { sig, id, score, state };
+		}
+
+		function render() {
+			const bk = bracketRep.value || KBB.defaultBracket();
+			const gfx = gfxRep.value || {};
+			const p = bk.playoffs || KBB.defaultBracket().playoffs;
+			const tour = KB.rep.tournament.value || {};
+			KB.$('#dates').textContent = tour.dates || '';
+			KB.$('#kicker').textContent = [tour.name || 'KB SERIES', tour.edition].filter(Boolean).join(' · ');
+			if (!board.firstChild) build();
+
+			const focus = gfx.highlightLive !== false;
+			const data = {};
+			for (const s of SLOTS) data[s.key] = s.get(p) || KBB.emptyMatch();
+			const anyLive = Object.values(data).some((m) => m.status === 'live');
+			board.classList.toggle('dimmed', focus && anyLive);
+
+			for (const s of SLOTS) {
+				const m = data[s.key];
+				const el = KB.$(`.match[data-key="${s.key}"]`, board);
+				const live = m.status === 'live';
+				el.classList.toggle('live', live);
+				el.classList.toggle('focus', live && focus);
+				KB.$('.lbl', el).textContent = m.label || s.label;
+				KB.$('.time', el).textContent = m.time || '';
+				const stat = KB.$('.stat', el);
+				const st = m.status || 'upcoming';
+				if (stat.dataset.st !== st) {
+					stat.dataset.st = st;
+					stat.innerHTML = live ? `<span class="live-badge"><i></i>LIVE</span>` : st === 'done' ? `<span class="st">Terminé</span>` : '';
+				}
+				const rows = KB.$$('.trow', el);
+				updateRow(rows[0], m, 'a', s.rh, s.key + 'a');
+				updateRow(rows[1], m, 'b', s.rh, s.key + 'b');
+			}
+
+			// Connecteurs
+			LINKS.forEach((l, i) => {
+				const src = SLOT[l.from], dst = SLOT[l.to];
+				const m = data[l.from];
+				const y1 = m.winner ? slotY(src.cy, m.winner, src.rh) : src.cy;
+				const d = wirePath(src.x + src.w, y1, dst.x, slotY(dst.cy, l.side, dst.rh));
+				const g = KB.$(`[data-link="${i}"]`, board);
+				const [base, lit, flow] = g.children;
+				for (const pth of [base, lit, flow]) if (pth.getAttribute('d') !== d) pth.setAttribute('d', d);
+				const on = !!m.winner;
+				const was = lit.classList.contains('on');
+				lit.classList.toggle('on', on);
+				if (on && (!was || prev['w' + i] !== d) && animateChanges) restart(lit, 'redraw');
+				prev['w' + i] = d;
+				const hot = on && data[l.to].status === 'live';
+				flow.classList.toggle('hot', hot);
+				flow.classList.toggle('idle', on && !hot);
+			});
+
+			// Champion
+			const champ = KBB.winnerId(p.final);
+			const box = KB.$('#trophy .champBox', board);
+			if (box.dataset.champ !== (champ || '')) {
+				box.dataset.champ = champ || '';
+				const t = KB.team(champ);
+				box.innerHTML = champ ? `<div class="champ">Champion</div><div class="champName kb-shine">${KB.esc(t ? t.name : champ)}</div>` : '';
+				if (animateChanges) restart(box, 'champBox');
+			}
+		}
+
+		function settle(ms) { clearTimeout(settleTimer); root.classList.remove('settled'); animateChanges = false; settleTimer = setTimeout(() => { root.classList.add('settled'); animateChanges = true; }, ms); }
+
+		KB.watch(['teams', 'tournament', bracketRep, gfxRep], () => {
+			render();
+			const vis = !!(gfxRep.value && gfxRep.value.bracket && gfxRep.value.bracket.visible);
+			if (vis && !presence.visible) { settle(3300); presence.show(); }
+			else if (!vis && presence.visible) { clearTimeout(settleTimer); root.classList.remove('settled'); animateChanges = false; presence.hide(); }
+		});
+	</script>
+</body>
+</html>

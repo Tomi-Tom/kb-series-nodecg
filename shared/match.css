@@ -1,0 +1,40 @@
+/* Partie "match" : boucles d'ambiance communes (versus, veto, veto-recap).
+   Uniquement transform / opacity / background-position : pas de reflow. */
+
+/* Balayage de lumière sur un filet doré (.kb-rule) */
+.m-sweep { position: relative; overflow: hidden; }
+.m-sweep::after { content: ''; position: absolute; top: -4px; bottom: -4px; width: 30%; left: 0; background: linear-gradient(90deg, transparent, rgba(255, 244, 210, .95), transparent); transform: translateX(-120%); animation: m-sweep 4.5s ease-in-out infinite; animation-delay: var(--sd, 1.6s); }
+@keyframes m-sweep { 0% { transform: translateX(-120%); } 45%, 100% { transform: translateX(440%); } }
+
+/* Halo qui respire */
+.m-breathe { animation: m-breathe 4s ease-in-out infinite; }
+@keyframes m-breathe { 0%, 100% { opacity: .35; transform: scale(.94); } 50% { opacity: .6; transform: scale(1.06); } }
+
+/* Reflet qui balaye un bloc (logos, cartes) — conteneur en overflow hidden */
+.m-glint { position: relative; overflow: hidden; }
+.m-glint::after { content: ''; position: absolute; top: -10%; bottom: -10%; width: 35%; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .1), transparent); transform: translateX(-160%) skewX(-18deg); animation: m-glint 7s ease-in-out infinite; animation-delay: var(--gd, 2s); pointer-events: none; }
+@keyframes m-glint { 0% { transform: translateX(-160%) skewX(-18deg); } 25%, 100% { transform: translateX(420%) skewX(-18deg); } }
+
+/* Étoiles qui dérivent lentement (calque supplémentaire) */
+.m-drift { position: absolute; inset: -120px; opacity: .55; pointer-events: none;
+	background-image:
+		radial-gradient(1.5px 1.5px at 18% 30%, #fff 50%, transparent 51%),
+		radial-gradient(1px 1px at 72% 18%, #cfe3ff 50%, transparent 51%),
+		radial-gradient(2px 2px at 55% 72%, #fff 50%, transparent 51%),
+		radial-gradient(1px 1px at 88% 52%, #fff 50%, transparent 51%),
+		radial-gradient(1.5px 1.5px at 33% 85%, #cfe3ff 50%, transparent 51%),
+		radial-gradient(1px 1px at 8% 60%, #fff 50%, transparent 51%);
+	animation: m-drift 60s linear infinite alternate; }
+@keyframes m-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-80px, 40px, 0); } }
+
+/* Flottement très léger (logos géants) */
+.m-float { animation: m-float 6s ease-in-out infinite; }
+@keyframes m-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* Donnée qui change */
+.m-bump { animation: m-bump .6s var(--kb-ease-out); }
+@keyframes m-bump { 0% { transform: scale(1.25); opacity: .2; } 100% { transform: none; opacity: 1; } }
+
+/* Révélation par masque (entrée) */
+.kb-in .m-reveal { animation: m-reveal .9s var(--kb-ease-inout) both; animation-delay: calc(var(--d, .2s) + var(--i, 0) * 90ms); }
+@keyframes m-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }

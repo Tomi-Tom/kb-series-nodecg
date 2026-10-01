@@ -1,0 +1,51 @@
+/* Partie "maps" : animations communes (map-intro, map-series, map-result). À inclure après theme.css. */
+
+/* Scène plein écran : fondu global + entrées .kb-anim ; .kb-settled = plus de rejeu des entrées lors des mises à jour */
+.kbm-scene { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
+.kbm-scene.kb-in { opacity: 1; }
+.kbm-scene.kb-out { opacity: 0; transition-duration: .4s; }
+.kb-settled .kb-anim { opacity: 1; animation: none; }
+
+/* Entrée en volet diagonal (cartes, panneaux) */
+.kb-in .kbm-wipe { animation: kbm-wipe .8s var(--kb-ease-inout) backwards; animation-delay: calc(var(--d, .2s) + var(--i, 0) * 90ms); opacity: 1; }
+@keyframes kbm-wipe { from { clip-path: polygon(0 0, 0 0, -20% 100%, -20% 100%); } to { clip-path: polygon(0 0, 120% 0, 100% 100%, -20% 100%); } }
+.kb-settled .kbm-wipe { animation: none; }
+
+/* Ligne dorée/bleue avec reflet qui balaie en boucle */
+.kbm-sweep { position: relative; overflow: hidden; }
+.kbm-sweep::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 22%; left: -30%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); filter: blur(1px); animation: kbm-sweep 5.5s ease-in-out infinite; animation-delay: var(--sd, 1.6s); }
+@keyframes kbm-sweep { 0% { left: -30%; } 45%, 100% { left: 115%; } }
+
+/* Reflet sur un logo / une image (masqué par sa forme : à poser sur un wrapper) */
+.kbm-glint { position: relative; }
+.kbm-glint::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .45) 50%, transparent 65%) no-repeat; background-size: 250% 100%; background-position: 150% 0; mix-blend-mode: overlay; animation: kbm-glint 6s ease-in-out infinite; animation-delay: var(--gd, 2s); }
+@keyframes kbm-glint { 0% { background-position: 150% 0; } 35%, 100% { background-position: -60% 0; } }
+
+/* Étoiles qui dérivent lentement (couche supplémentaire au-dessus de .kb-bg__stars) */
+.kbm-drift { position: absolute; inset: -60px; opacity: .55; pointer-events: none;
+	background-image:
+		radial-gradient(1.5px 1.5px at 18% 30%, #fff 50%, transparent 51%),
+		radial-gradient(1px 1px at 36% 72%, #cfe3ff 50%, transparent 51%),
+		radial-gradient(1.5px 1.5px at 55% 22%, #fff 50%, transparent 51%),
+		radial-gradient(1px 1px at 72% 58%, #cfe3ff 50%, transparent 51%),
+		radial-gradient(2px 2px at 88% 14%, #f5c445 50%, transparent 51%),
+		radial-gradient(1px 1px at 8% 64%, #fff 50%, transparent 51%),
+		radial-gradient(1.5px 1.5px at 64% 92%, #cfe3ff 50%, transparent 51%);
+	animation: kbm-drift 40s linear infinite alternate, kb-twinkle 4s ease-in-out infinite alternate; }
+@keyframes kbm-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50px, 30px, 0); } }
+
+/* Halo qui respire */
+.kbm-breathe { animation: kbm-breathe 4.5s ease-in-out infinite; }
+@keyframes kbm-breathe { 0%, 100% { opacity: .35; transform: scale(.96); } 50% { opacity: .7; transform: scale(1.04); } }
+
+/* Donnée qui change : petit flash + pop */
+.kbm-chg { animation: kbm-chg .7s var(--kb-ease-out) both !important; }
+@keyframes kbm-chg { 0% { transform: scale(1.25); filter: brightness(1.8); } 100% { transform: none; filter: none; } }
+
+/* Ken Burns lent sur une illustration */
+.kb-in .kbm-kenburns { animation: kbm-kenburns 22s ease-out forwards; }
+@keyframes kbm-kenburns { from { transform: scale(1.12) translate3d(1.5%, 1%, 0); } to { transform: scale(1.02) translate3d(0, 0, 0); } }
+
+/* Partenaires (bande discrète) */
+.kbm-partners { position: absolute; left: 0; right: 0; bottom: 52px; display: flex; justify-content: center; align-items: center; gap: 22px; font: 600 15px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-muted); }
+.kbm-partners img { height: 38px; }

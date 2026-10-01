@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>Map intro</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<link rel="stylesheet" href="../shared/maps.css">
+	<style>
+		#splash { position: absolute; inset: -20px; background: var(--kb-night-1) center / cover no-repeat; transform-origin: 60% 40%; }
+		#shade { position: absolute; inset: 0; background:
+			linear-gradient(90deg, rgba(4, 6, 26, .92) 0%, rgba(4, 6, 26, .55) 45%, rgba(4, 6, 26, .2) 75%, rgba(4, 6, 26, .45) 100%),
+			linear-gradient(180deg, rgba(4, 6, 26, .5) 0%, transparent 25%, rgba(4, 6, 26, .7) 52%, var(--kb-night-0) 94%); }
+		#tint { position: absolute; inset: 0; background: linear-gradient(115deg, rgba(43, 47, 181, .35), transparent 55%); mix-blend-mode: screen; }
+
+		/* En-tête */
+		#head { position: absolute; left: 96px; right: 96px; top: 64px; display: flex; align-items: center; gap: 22px; }
+		#head .logo { width: 104px; height: 104px; border-radius: 50%; }
+		#head .logo img { width: 104px; height: 104px; }
+		#head .ttl { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+		#head .kb-kicker { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		#series { display: flex; align-items: center; gap: 18px; padding: 12px 28px; }
+		#series .tag { font: 400 34px/1 var(--kb-display); letter-spacing: .04em; }
+		#series .sc { font: 400 60px/1 var(--kb-display); min-width: 150px; text-align: center; display: flex; justify-content: center; gap: 14px; }
+		#series .sc b { font-weight: 400; color: var(--kb-gold-hi); display: inline-block; }
+		#series .lbl { position: absolute; top: -26px; left: 0; right: 0; text-align: center; font: 600 14px var(--kb-ui); letter-spacing: .3em; color: var(--kb-gold); }
+
+		/* Bloc map */
+		#mapblock { position: absolute; left: 96px; top: 206px; width: 1300px; }
+		#mapnum { display: flex; align-items: center; gap: 16px; }
+		#mapnum::before { content: ''; width: 48px; height: 4px; background: var(--kb-gold); }
+		#mapname { font: 400 176px/0.95 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; text-shadow: 0 10px 40px rgba(0, 0, 0, .55), 0 0 60px rgba(94, 196, 255, .18); white-space: nowrap; margin-top: 6px; }
+		#maprule { width: 560px; margin: 12px 0 18px; }
+		#chips { display: flex; align-items: stretch; gap: 16px; }
+		.chip { display: flex; align-items: center; gap: 14px; padding: 8px 26px 8px 18px; min-height: 62px; }
+		.chip .k { font: 600 13px var(--kb-ui); letter-spacing: .25em; text-transform: uppercase; color: var(--kb-muted); }
+		.chip .v { font: 700 26px/1.1 var(--kb-num); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+		.chip .col { display: flex; flex-direction: column; gap: 3px; }
+		.side { display: inline-flex; align-items: center; gap: 8px; }
+		.side i { width: 10px; height: 22px; transform: skewX(-18deg); background: var(--c); }
+		.side em { font-style: normal; color: var(--kb-muted); font-weight: 600; }
+
+		/* Tabs d'équipes (façon tableau de score Valorant) */
+		#tabs { position: absolute; left: 96px; right: 96px; bottom: 86px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+		.tab { padding: 16px 22px 18px; background: linear-gradient(160deg, rgba(17, 24, 69, .88), rgba(4, 6, 26, .92)); }
+		.tab::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c); box-shadow: 0 0 18px var(--c); }
+		.tab .th { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; }
+		.tab .th .nm { flex: 1; min-width: 0; font: 400 38px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.badge { font: 700 13px var(--kb-ui); letter-spacing: .24em; text-transform: uppercase; padding: 5px 12px; border: 1px solid var(--kb-line); color: var(--kb-muted); white-space: nowrap; }
+		.badge.atk { color: #ffb3a0; border-color: rgba(255, 140, 110, .45); }
+		.badge.def { color: var(--kb-blue-hi); border-color: rgba(94, 196, 255, .45); }
+		.badge.pick { color: #1a1430; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); border-color: transparent; }
+		.cols, .row { display: grid; grid-template-columns: 54px minmax(0, 1fr) 176px 62px 62px 66px; align-items: center; gap: 12px; }
+		.cols { padding: 0 10px 6px; border-bottom: 1px solid var(--kb-line); font: 600 12px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--kb-muted); }
+		.cols span:nth-child(n+4), .row .n { text-align: right; }
+		.rows { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+		.row { height: 52px; padding: 0 10px 0 0; background: linear-gradient(90deg, rgba(27, 35, 102, .55), rgba(27, 35, 102, .15)); position: relative; }
+		.row::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, var(--c), transparent 60%); opacity: .45; }
+		.ag { width: 54px; height: 52px; display: grid; place-items: center; background: linear-gradient(135deg, var(--ac, var(--kb-night-3)), rgba(4, 6, 26, .6)); overflow: hidden; }
+		.ag img { width: 52px; height: 52px; object-fit: cover; }
+		.ag.fav img { filter: grayscale(1) brightness(.75); opacity: .55; }
+		.ag.fav { background: var(--kb-night-2); }
+		.ag.none { background: var(--kb-night-2); color: var(--kb-muted); font: 400 26px var(--kb-display); }
+		.pl { min-width: 0; display: flex; flex-direction: column; }
+		.pl .p { font: 700 25px/1.05 var(--kb-num); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.pl .r { font: 600 13px/1.2 var(--kb-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--kb-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.pl .r b { color: var(--kb-gold); font-weight: 600; }
+		.rk { display: flex; align-items: center; gap: 8px; min-width: 0; font: 700 18px var(--kb-num); letter-spacing: .03em; white-space: nowrap; }
+		.rk img { width: 34px; height: 34px; object-fit: contain; flex: 0 0 auto; }
+		.rk span { overflow: hidden; text-overflow: ellipsis; }
+		.row .n { font: 400 28px/1 var(--kb-display); }
+		.row .dim { color: rgba(142, 154, 200, .5); }
+		.row.empty { background: repeating-linear-gradient(115deg, rgba(27, 35, 102, .25) 0 12px, rgba(27, 35, 102, .12) 12px 24px); }
+		.row.empty .pl .p { color: var(--kb-muted); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 19px; }
+		.row.empty .ag { background: transparent; border: 1px dashed var(--kb-line); }
+		#note { position: absolute; left: 0; right: 0; bottom: 50px; text-align: center; font: 500 13px var(--kb-ui); letter-spacing: .24em; text-transform: uppercase; color: rgba(142, 154, 200, .75); }
+		#note i { display: inline-block; width: 12px; height: 12px; background: var(--kb-muted); opacity: .5; vertical-align: -1px; margin: 0 6px 0 14px; }
+
+		#empty { position: absolute; inset: 0; display: grid; place-items: center; }
+	</style>
+</head>
+<body>
+	<div id="scene" class="kbm-scene">
+		<div id="splash" class="kbm-kenburns"></div>
+		<div id="shade"></div>
+		<div id="tint"></div>
+		<div class="kb-bg__stars"></div>
+		<div class="kbm-drift"></div>
+		<div id="content"></div>
+		<div class="kb-frame"></div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/maps.js"></script>
+	<script>
+		const $ = (s) => document.querySelector(s);
+		const sceneEl = $('#scene');
+		const scene = KBM.scene(sceneEl, 3600);
+		const esc = KB.esc;
+		const seen = new Map();
+
+		function playerRow(p, mapIndex, i, dir, teamKey) {
+			if (!p) {
+				return `<div class="row empty kb-anim kb-anim--${dir}" style="--i:${i}"><div class="ag"></div>
+					<div class="pl"><div class="p">À définir</div></div><div class="rk dim">–</div><div class="n dim">–</div><div class="n dim">–</div><div class="n dim">–</div></div>`;
+			}
+			const pick = KB.pickOf(p.riotId, mapIndex);
+			const fav = !pick && p.agents && p.agents[0];
+			const ag = pick || fav;
+			const agHtml = ag && ag.icon
+				? `<div class="ag ${pick ? '' : 'fav'}" style="${pick && ag.color ? `--ac:${esc(ag.color)}` : ''}" data-k="ag-${teamKey}-${i}" data-v="${esc((pick ? 'p:' : 'f:') + ag.name)}"><img src="${esc(ag.icon)}" alt=""></div>`
+				: `<div class="ag none" data-k="ag-${teamKey}-${i}" data-v="none">?</div>`;
+			const sub = [pick ? `<b>${esc(pick.name)}</b>` : fav ? `${esc(fav.name)} · favori` : '', esc(KB.roleLabel(p.role))].filter(Boolean).join(' · ');
+			const rank = p.rank && p.rank.name ? `<div class="rk">${p.rank.icon ? `<img src="${esc(p.rank.icon)}" alt="">` : ''}<span>${esc(p.rank.name)}</span></div>` : '<div class="rk dim">–</div>';
+			const n = (v) => `<div class="n ${v === '–' ? 'dim' : ''}">${esc(v)}</div>`;
+			const hs = KBM.stat(p, 'hs'), hsTxt = hs === '–' ? hs : KBM.pct(hs);
+			return `<div class="row kb-anim kb-anim--${dir}" style="--i:${i}">${agHtml}
+				<div class="pl"><div class="p" data-k="nm-${teamKey}-${i}">${esc(p.name)}</div><div class="r">${sub || '&nbsp;'}</div></div>
+				${rank}${n(KBM.stat(p, 'acs', 0))}${n(KBM.stat(p, 'kd', 2))}${n(hsTxt)}</div>`;
+		}
+
+		function teamTab(team, key, mapIndex, sides, pickedBy, idx) {
+			const c = (team && team.color) || (key === 'A' ? '#3b8fe6' : '#ff4655');
+			const dir = idx === 0 ? 'left' : 'right';
+			const roster = KB.roster(team).slice(0, 5);
+			const rows = [];
+			for (let i = 0; i < 5; i++) rows.push(playerRow(roster[i] || null, mapIndex, 4 + idx * 2 + i, dir, key));
+			const side = sides && sides[key];
+			return `<div class="kb-panel tab kbm-wipe" style="--c:${esc(c)};--i:${3 + idx}">
+				<div class="th">${KB.teamLogo(team, 50)}<div class="nm">${esc(team ? team.name : 'À déterminer')}</div>
+					${pickedBy === key ? '<span class="badge pick">Pick</span>' : ''}
+					${side ? `<span class="badge ${side === 'attack' ? 'atk' : 'def'}">${KBM.sideLabel(side)}</span>` : ''}</div>
+				<div class="cols"><span>Agent</span><span>Joueur</span><span>Rang</span><span>ACS</span><span>K/D</span><span>HS</span></div>
+				<div class="rows">${rows.join('')}</div></div>`;
+		}
+
+		function render() {
+			const match = KB.rep.match.value || {};
+			const cfg = KBM.cfg().intro;
+			KBM.teamVars(sceneEl, match);
+			const at = KBM.mapAt(cfg.index, match);
+			const content = $('#content');
+			if (!at || !at.entry || !at.entry.map) {
+				$('#splash').style.backgroundImage = `url("${KB.img.posterArt}")`;
+				content.innerHTML = `<div id="empty"><div style="text-align:center"><img class="kb-logo kb-anim kb-anim--pop" src="${KB.img.kbs}" style="width:260px;height:260px;margin:0 auto"><div class="kb-title kb-anim" style="--i:2;font-size:110px;margin-top:20px">Map à venir</div><div class="kb-label kb-anim" style="--i:3;margin-top:12px">Veto en attente</div></div></div>`;
+				return;
+			}
+			const e = at.entry, m = KB.map(e.map);
+			$('#splash').style.backgroundImage = m && m.splash ? `url("${m.splash}")` : `url("${KB.img.posterArt}")`;
+			const { left, right, leftKey, rightKey } = KB.sides(match);
+			const s = KB.seriesScore(match);
+			let pick = '';
+			if (e.pickedBy === 'A' || e.pickedBy === 'B') {
+				const t = KBM.teamOf(e.pickedBy, match);
+				pick = `<div class="chip kb-panel kb-anim kb-anim--left" style="--i:4">${KB.teamLogo(t, 44)}<div class="col"><div class="k">Pick de</div><div class="v">${esc(t ? t.name : 'Équipe ' + e.pickedBy)}</div></div></div>`;
+			} else if (e.pickedBy === 'decider') {
+				pick = `<div class="chip kb-panel kb-anim kb-anim--left" style="--i:4"><div class="col"><div class="k">Map restante</div><div class="v" style="color:var(--kb-gold-hi)">Decider</div></div></div>`;
+			}
+			const sides = KBM.startSides(e.map);
+			let sidesHtml = '';
+			if (sides) {
+				const one = (key) => { const t = KBM.teamOf(key, match); const c = (t && t.color) || (key === 'A' ? '#3b8fe6' : '#ff4655'); return `<span class="side" style="--c:${esc(c)}"><i></i>${esc(t ? t.tag || t.name : 'Équipe ' + key)} <em>${KBM.sideLabel(sides[key])}</em></span>`; };
+				sidesHtml = `<div class="chip kb-panel kb-anim kb-anim--left" style="--i:5"><div class="col"><div class="k">Côtés de départ</div><div class="v" style="display:flex;gap:26px">${one(leftKey)}${one(rightKey)}</div></div></div>`;
+			}
+			const name = (m && m.name) || e.map;
+			const nameSize = name.length > 9 ? Math.max(110, Math.floor(1550 / name.length)) : 176;
+			content.innerHTML = `
+				<div id="head" class="kb-anim" style="--i:0">
+					<div class="logo kbm-glint"><img class="kb-logo" src="${KB.img.kbs}" alt=""></div>
+					<div class="ttl"><div class="kb-kicker">KB SERIES · ${esc(match.stage || 'Match')}</div><div class="kb-label">${esc(KB.formatLabel(match.format))} · Édition spéciale Epitech</div></div>
+					<div id="series" class="kb-panel"><div class="lbl">SÉRIE</div>${KB.teamLogo(left, 54)}${left ? `<div class="tag">${esc(left.tag || left.name)}</div>` : ''}
+						<div class="sc"><b data-k="sl">${s[leftKey]}</b>–<b data-k="sr">${s[rightKey]}</b></div>${right ? `<div class="tag">${esc(right.tag || right.name)}</div>` : ''}${KB.teamLogo(right, 54)}</div>
+				</div>
+				<div id="mapblock">
+					<div id="mapnum" class="kb-kicker kb-anim kb-anim--left" style="--i:1">Map ${at.number} / ${at.total}</div>
+					<div id="mapname" class="kb-anim kb-anim--left" style="--i:2;font-size:${nameSize}px" data-k="map">${esc(name)}</div>
+					<div id="maprule" class="kb-rule kb-rule--gold kbm-sweep kb-anim kb-anim--left" style="--i:3"></div>
+					<div id="chips">${pick}${sidesHtml}</div>
+				</div>
+				<div id="tabs">${teamTab(left, leftKey, at.index, sides, e.pickedBy, 0)}${teamTab(right, rightKey, at.index, sides, e.pickedBy, 1)}</div>
+				<div id="note" class="kb-anim" style="--i:14">Agent pické sur ${esc(name)}<i></i>grisé = agent favori · stats ranked de la saison</div>`;
+			KBM.flashChanges(sceneEl, seen);
+		}
+
+		KB.watch(['match', 'teams', 'veto', 'valorantData', 'playerProfiles', 'playerData', KBM.rep()], () => {
+			scene.set(!!KBM.cfg().intro.visible, render);
+		});
+	</script>
+</body>
+</html>

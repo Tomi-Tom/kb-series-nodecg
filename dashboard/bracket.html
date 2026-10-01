@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="../shared/dashboard.css">
+	<style>
+		.vis { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; }
+		.vis .status { margin: 0; }
+		.vis button { min-width: 110px; }
+		.gcard .ghead { display: flex; gap: 6px; align-items: center; }
+		.gcard .ghead input { font-weight: 700; }
+		table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+		th { font: 600 10px 'Segoe UI', system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 2px 3px; }
+		td { padding: 2px 3px; }
+		td.rk { width: 26px; text-align: center; font-weight: 700; color: var(--muted); }
+		td.rk.q { color: var(--gold); }
+		td.n input { padding: 6px 4px; text-align: center; }
+		td.n { width: 54px; }
+		td.df { width: 44px; text-align: center; font-size: 12px; color: var(--muted); }
+		td.x { width: 30px; }
+		td.x button, .icon { padding: 5px 8px; }
+		.round { margin-top: 10px; }
+		.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+		.match { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+		.match.live { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
+		.match.done { border-color: #3a4590; }
+		.match .top { display: grid; grid-template-columns: 1fr 64px 92px; gap: 4px; }
+		.match .top input, .match .top select { padding: 5px 6px; font-size: 12px; }
+		.side { display: grid; grid-template-columns: 1fr 50px 30px; gap: 4px; margin-top: 4px; align-items: center; }
+		.side select, .side input { padding: 5px 6px; }
+		.side input { text-align: center; }
+		.side button.win { padding: 5px 0; font-size: 12px; }
+		.side button.win.active { background: var(--gold); color: #1a1430; border-color: var(--gold); outline: 0; }
+		.side.w select { border-color: var(--gold); }
+		.toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+		.toolbar button { flex: 1 1 auto; }
+		.chk { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; margin: 8px 0 0; cursor: pointer; }
+		.inline { display: flex; align-items: center; gap: 8px; }
+		.inline label { margin: 0; white-space: nowrap; }
+		.inline input { width: 70px; }
+	</style>
+</head>
+<body>
+	<h3>Affichage</h3>
+	<div class="card">
+		<div class="vis">
+			<div class="status"><span class="dot" id="dotGroups"></span>Classement des groupes</div>
+			<button id="btnGroups" data-gfx="groups">AFFICHER</button>
+			<div class="status"><span class="dot" id="dotBracket"></span>Arbre de la phase finale</div>
+			<button id="btnBracket" data-gfx="bracket">AFFICHER</button>
+		</div>
+		<label class="chk"><input type="checkbox" id="highlightLive"> Mettre en avant le match en cours (LIVE)</label>
+	</div>
+
+	<h3>Actions</h3>
+	<div class="toolbar">
+		<button class="gold" id="btnFill">Remplir les quarts depuis les groupes</button>
+		<button id="btnDemo">Données de démo</button>
+		<button class="danger" id="btnReset">Réinitialiser</button>
+	</div>
+	<div class="hint">Croisement : 1A-4B, 2B-3A, 1B-4A, 2A-3B (2 groupes) · 1A-2B, 1C-2D, 1B-2A, 1D-2C (4 groupes). Les vainqueurs avancent automatiquement ; les perdants des demies vont en petite finale.</div>
+	<div class="msg" id="msg"></div>
+
+	<h3>Phase de groupes</h3>
+	<div class="inline"><label for="qualify">Qualifiés par groupe (en or)</label><input type="number" min="0" max="16" data-path="qualify" id="qualify"></div>
+	<div id="groups"></div>
+	<div class="row"><button id="btnAddGroup">+ Ajouter un groupe</button></div>
+
+	<h3>Phase finale</h3>
+	<div id="playoffs"></div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/bracket.js"></script>
+	<script>
+		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
+		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: { groups: { visible: false }, bracket: { visible: false }, highlightLive: true } });
+		const NUM = new Set(['w', 'l', 'rw', 'rl', 'scoreA', 'scoreB', 'qualify']);
+
+		const msg = (t, cls = 'ok') => { const m = KB.$('#msg'); m.textContent = t; m.className = 'msg ' + cls; clearTimeout(msg.t); msg.t = setTimeout(() => { m.textContent = ''; }, 4000); };
+
+		// ---------- Chemins dans le replicant ----------
+		const getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+		function setPath(path, value) {
+			const keys = path.split('.');
+			const last = keys.pop();
+			const parent = keys.reduce((o, k) => (o == null ? undefined : o[k]), bracketRep.value);
+			if (parent && parent[last] !== value) parent[last] = value;
+		}
+
+		function teamOptions(selected) {
+			const teams = Object.values(KB.rep.teams.value || {}).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+			let o = `<option value="">— À déterminer —</option>`;
+			for (const t of teams) o += `<option value="${KB.esc(t.id)}">${KB.esc(t.name)}${t.tag ? ' (' + KB.esc(t.tag) + ')' : ''}</option>`;
+			if (selected && !teams.some((t) => t.id === selected)) o += `<option value="${KB.esc(selected)}">${KB.esc(selected)} (inconnue)</option>`;
+			return o;
+		}
+
+		// ---------- Construction (seulement quand la forme change) ----------
+		let shapeKey = '';
+		function build() {
+			const bk = bracketRep.value;
+			const groups = bk.groups || [];
+			KB.$('#groups').innerHTML = groups.map((g, gi) => `
+				<div class="card gcard">
+					<div class="ghead"><input data-path="groups.${gi}.name" placeholder="Nom du groupe"><button class="danger icon shrink" data-act="delGroup" data-g="${gi}" title="Supprimer le groupe">✕</button></div>
+					<table><thead><tr><th>#</th><th>Équipe</th><th>V</th><th>D</th><th>Rds +</th><th>Rds −</th><th>Diff</th><th></th></tr></thead><tbody>
+					${(g.teams || []).map((t, ti) => `<tr>
+						<td class="rk" data-rank="${gi}.${ti}"></td>
+						<td><select data-path="groups.${gi}.teams.${ti}.id">${teamOptions(t && t.id)}</select></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.w"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.l"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rw"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rl"></td>
+						<td class="df" data-diff="${gi}.${ti}"></td>
+						<td class="x"><button class="icon" data-act="delTeam" data-g="${gi}" data-t="${ti}" title="Retirer">✕</button></td></tr>`).join('')}
+					</tbody></table>
+					<div class="row"><button data-act="addTeam" data-g="${gi}">+ Équipe</button></div>
+				</div>`).join('') || '<p class="empty">Aucun groupe.</p>';
+
+			const p = bk.playoffs || {};
+			const card = (path, def) => `
+				<div class="match" data-match="${path}">
+					<div class="top">
+						<input data-path="${path}.label" placeholder="${KB.esc(def)}">
+						<input data-path="${path}.time" placeholder="hh:mm">
+						<select data-path="${path}.status"><option value="upcoming">À venir</option><option value="live">En cours</option><option value="done">Terminé</option></select>
+					</div>
+					${['a', 'b'].map((s) => `<div class="side" data-side="${path}.${s}">
+						<select data-path="${path}.${s}">${teamOptions(getPath(bk, path + '.' + s))}</select>
+						<input type="number" min="0" data-path="${path}.score${s.toUpperCase()}">
+						<button class="win" data-act="win" data-m="${path}" data-s="${s}" title="Désigner vainqueur">V</button></div>`).join('')}
+				</div>`;
+			KB.$('#playoffs').innerHTML = `
+				<div class="round"><label>Quarts de finale · ONLINE</label><div class="mgrid">${(p.quarters || []).map((_, i) => card('playoffs.quarters.' + i, 'QF' + (i + 1))).join('')}</div></div>
+				<div class="round"><label>Demi-finales · PRÉSENTIEL</label><div class="mgrid">${(p.semis || []).map((_, i) => card('playoffs.semis.' + i, 'Demi-finale ' + (i + 1))).join('')}</div></div>
+				<div class="round"><label>Finales · PRÉSENTIEL</label><div class="mgrid">${card('playoffs.final', 'Grande finale')}${card('playoffs.third', 'Petite finale')}</div>
+				<div class="hint">Gauche : grande finale · droite : petite finale.</div></div>`;
+		}
+
+		// ---------- Synchronisation des valeurs (sans écraser le champ en cours d'édition) ----------
+		function sync() {
+			const bk = bracketRep.value;
+			const key = JSON.stringify([(bk.groups || []).map((g) => (g.teams || []).length), Object.keys(KB.rep.teams.value || {}).sort(), Object.values(KB.rep.teams.value || {}).map((t) => t.name)]);
+			if (key !== shapeKey) { shapeKey = key; build(); }
+			for (const el of KB.$$('[data-path]')) {
+				if (el === document.activeElement && el.tagName === 'INPUT') continue;
+				const v = getPath(bk, el.dataset.path);
+				const s = v == null ? '' : String(v);
+				if (el.value !== s) el.value = s;
+			}
+			// Rangs calculés, différences, vainqueurs
+			const q = +bk.qualify || 0;
+			(bk.groups || []).forEach((g, gi) => {
+				const st = KBB.standings(g);
+				(g.teams || []).forEach((t, ti) => {
+					const r = st.findIndex((x) => x._i === ti);
+					const rk = KB.$(`[data-rank="${gi}.${ti}"]`), df = KB.$(`[data-diff="${gi}.${ti}"]`);
+					if (rk) { rk.textContent = r >= 0 ? r + 1 : '–'; rk.classList.toggle('q', r >= 0 && r < q); }
+					if (df) { const d = (+t.rw || 0) - (+t.rl || 0); df.textContent = t.id ? (d > 0 ? '+' : '') + d : ''; }
+				});
+			});
+			for (const el of KB.$$('[data-match]')) {
+				const m = getPath(bk, el.dataset.match) || {};
+				el.classList.toggle('live', m.status === 'live');
+				el.classList.toggle('done', m.status === 'done');
+				for (const s of ['a', 'b']) {
+					KB.$(`[data-side="${el.dataset.match}.${s}"]`, el).classList.toggle('w', m.winner === s);
+					KB.$(`button[data-s="${s}"]`, el).classList.toggle('active', m.winner === s);
+				}
+			}
+			const g = gfxRep.value || {};
+			for (const k of ['groups', 'bracket']) {
+				const on = !!(g[k] && g[k].visible);
+				const btn = KB.$(`[data-gfx="${k}"]`);
+				btn.textContent = on ? 'MASQUER' : 'AFFICHER';
+				btn.className = on ? 'danger' : 'show';
+				KB.$('#dot' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', on);
+			}
+			KB.$('#highlightLive').checked = g.highlightLive !== false;
+		}
+
+		// ---------- Écriture ----------
+		document.addEventListener('change', (e) => {
+			const el = e.target;
+			if (el.id === 'highlightLive') { gfxRep.value.highlightLive = el.checked; return; }
+			const path = el.dataset && el.dataset.path;
+			if (!path) return;
+			const key = path.split('.').pop();
+			let v = el.value;
+			if (NUM.has(key)) v = Math.max(0, parseInt(v, 10) || 0);
+			else if (el.tagName === 'SELECT' && v === '' && key !== 'status') v = null;
+			if (key === 'status') {
+				const m = getPath(bracketRep.value, path.slice(0, -'.status'.length));
+				if (v !== 'done' && m && m.winner) m.winner = null; // un match non terminé n'a pas de vainqueur
+			}
+			// Changer une équipe d'un match annule son vainqueur
+			if ((key === 'a' || key === 'b') && /^playoffs\./.test(path)) {
+				const m = getPath(bracketRep.value, path.slice(0, -2));
+				if (m && m.winner) m.winner = null;
+			}
+			setPath(path, v);
+		});
+
+		document.addEventListener('click', async (e) => {
+			const b = e.target.closest('button');
+			if (!b) return;
+			const bk = bracketRep.value;
+			if (b.dataset.gfx) {
+				const k = b.dataset.gfx;
+				gfxRep.value[k] = { ...(gfxRep.value[k] || {}), visible: !(gfxRep.value[k] && gfxRep.value[k].visible) };
+				return;
+			}
+			switch (b.dataset.act || b.id) {
+				case 'win': {
+					const m = getPath(bk, b.dataset.m);
+					if (!m) return;
+					if (m.winner === b.dataset.s) { m.winner = null; m.status = 'live'; }
+					else {
+						if (!m[b.dataset.s]) { msg('Choisis d\'abord une équipe.', 'err'); return; }
+						m.winner = b.dataset.s; m.status = 'done';
+					}
+					break;
+				}
+				case 'addTeam': bk.groups[+b.dataset.g].teams.push({ id: null, w: 0, l: 0, rw: 0, rl: 0 }); break;
+				case 'delTeam': bk.groups[+b.dataset.g].teams.splice(+b.dataset.t, 1); break;
+				case 'delGroup': if (confirm('Supprimer ce groupe ?')) bk.groups.splice(+b.dataset.g, 1); break;
+				case 'btnAddGroup': bk.groups.push({ name: 'Groupe ' + String.fromCharCode(65 + bk.groups.length), teams: [] }); break;
+				case 'btnFill': {
+					const done = (bk.playoffs.quarters || []).some((m) => m.winner || m.status !== 'upcoming');
+					if (done && !confirm('Des quarts ont déjà des résultats : les remplacer ?')) return;
+					const pairs = await nodecg.sendMessage('bracket:fillQuarters');
+					msg('Quarts remplis : ' + pairs.map(([a, c]) => `${(KB.team(a) || {}).tag || a || '?'} vs ${(KB.team(c) || {}).tag || c || '?'}`).join(' · '));
+					break;
+				}
+				case 'btnDemo': if (confirm('Remplacer le bracket par les données de démo ?')) { await nodecg.sendMessage('bracket:demo'); msg('Démo chargée.'); } break;
+				case 'btnReset': if (confirm('Tout effacer (groupes et phase finale) ?')) { await nodecg.sendMessage('bracket:reset'); msg('Bracket réinitialisé.'); } break;
+			}
+		});
+
+		KB.watch(['teams', bracketRep, gfxRep], sync);
+	</script>
+</body>
+</html>

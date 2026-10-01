@@ -1,0 +1,9 @@
+node_modules
+db
+assets
+logs
+shots
+exports
+Medias
+rtk.txt
+.env

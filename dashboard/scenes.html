@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="../shared/dashboard.css">
+	<style>
+		.cd-live { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+		.cd-live .big { font: 700 34px/1 'Segoe UI', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+		.cd-live .big.zero { color: var(--gold); font-size: 22px; }
+		.cd-live .big.none { color: var(--muted); font-size: 18px; }
+		.cd-live .lbl { font-size: 12px; color: var(--muted); text-align: right; }
+		.btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+		.btns button { flex: 1 1 auto; padding: 7px 8px; }
+		.w-time { flex: 0 0 92px !important; }
+		.w-num { flex: 0 0 58px !important; text-align: center; }
+		.w-icon { flex: 0 0 auto !important; padding: 6px 9px !important; }
+		.chk { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; font-size: 13px; color: var(--text); cursor: pointer; }
+		.sch { border-left: 3px solid var(--line); }
+		.sch.live { border-left-color: var(--red); }
+		.sch.done { border-left-color: var(--gold); opacity: .92; }
+		.sch.upcoming { border-left-color: var(--blue); }
+		.sch .vs { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+		.sch .idx { flex: 0 0 auto; color: var(--muted); font-size: 12px; width: 16px; }
+		.links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }
+		details.sec { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+		details.sec > summary { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; list-style: none; display: flex; justify-content: space-between; }
+		details.sec > summary::after { content: '▸'; color: var(--muted); }
+		details.sec[open] > summary::after { content: '▾'; }
+		.saved { color: var(--ok); font-size: 11px; opacity: 0; transition: opacity .3s; }
+		.saved.on { opacity: 1; }
+		.rot { border-left: 3px solid var(--blue); }
+		.rot.off { border-left-color: var(--line); opacity: .6; }
+		.rot .ttl { flex: 1 1 auto !important; font-weight: 700; font-size: 13px; }
+		.rot .dur { flex: 0 0 64px !important; text-align: center; }
+		.rot .sfx { flex: 0 0 auto !important; color: var(--muted); font-size: 12px; }
+		.rot input[type=checkbox] { flex: 0 0 auto !important; width: 18px; height: 18px; }
+	</style>
+</head>
+<body>
+	<!-- ========== Compte à rebours ========== -->
+	<h3>Compte à rebours</h3>
+	<div class="card cd-live">
+		<div class="big" id="cdNow">—</div>
+		<div class="lbl" id="cdInfo"></div>
+	</div>
+	<label for="cdLabel">Texte au-dessus (écran d'attente)</label>
+	<input id="cdLabel" list="cdLabels" placeholder="Le stream commence dans">
+	<datalist id="cdLabels"><option value="Le stream commence dans"><option value="Début du match dans"><option value="Reprise dans"><option value="Grande finale dans"></datalist>
+	<div class="row">
+		<input id="cdMin" type="number" min="0" step="1" value="10" class="w-num" title="Minutes">
+		<button class="primary" id="cdStartMin">Lancer (minutes)</button>
+	</div>
+	<div class="row">
+		<input id="cdAt" type="time" class="w-time" title="Heure cible">
+		<button class="primary" id="cdStartAt">Jusqu'à cette heure</button>
+	</div>
+	<div class="btns">
+		<button data-add="-1">−1 min</button><button data-add="1">+1 min</button><button data-add="5">+5 min</button><button data-add="10">+10 min</button>
+		<button class="danger" id="cdReset">Reset</button>
+	</div>
+	<label>Message à zéro</label>
+	<input data-path="countdownZero" placeholder="C'est parti">
+
+	<!-- ========== Textes des écrans ========== -->
+	<details class="sec" open>
+		<summary>Écran d'attente (starting)</summary>
+		<label>Titre néon</label><input data-path="starting.title" placeholder="Bientôt">
+		<label>Texte si aucun compte à rebours</label><input data-path="starting.fallback">
+		<label class="chk"><input type="checkbox" data-path="starting.showNextMatch"> Afficher le prochain match</label>
+		<label>Bandeau défilant (séparer par •)</label><input data-path="marquee">
+	</details>
+
+	<details class="sec">
+		<summary>Pause (brb)</summary>
+		<div class="grid2">
+			<div><label>Sur-titre</label><input data-path="brb.kicker"></div>
+			<div><label>Titre</label><input data-path="brb.title"></div>
+		</div>
+		<label>Message</label><input data-path="brb.message">
+		<label>Texte du compte à rebours</label><input data-path="brb.countdownLabel" placeholder="Reprise dans">
+		<label class="chk"><input type="checkbox" data-path="brb.showCountdown"> Afficher le compte à rebours</label>
+		<label class="chk"><input type="checkbox" data-path="brb.showSeries"> Afficher la série en cours</label>
+	</details>
+
+	<details class="sec">
+		<summary>Fin de stream (ending)</summary>
+		<div class="grid2">
+			<div><label>Sur-titre</label><input data-path="ending.kicker"></div>
+			<div><label>Libellé rendez-vous</label><input data-path="ending.nextLabel"></div>
+		</div>
+		<label>Titre</label><input data-path="ending.title">
+		<label>Message</label><input data-path="ending.message">
+		<label>Prochain rendez-vous (vide = masqué)</label><input data-path="ending.next">
+	</details>
+
+	<details class="sec" open>
+		<summary>Rotation en bas de la pause <span class="saved" id="rotSaved">enregistré</span></summary>
+		<div id="rotList"></div>
+		<div class="row">
+			<select id="rotType"></select>
+			<button class="gold shrink" id="rotAdd">+ Ajouter</button>
+		</div>
+		<div class="row"><button class="shrink" id="rotReset">Rotation par défaut</button></div>
+		<div class="hint">Ordre = ordre d'affichage. Un élément sans contenu (ex. aucun match à venir) est sauté automatiquement. « Badge » = titre du bloc de gauche (vide = titre par défaut).</div>
+	</details>
+
+	<!-- ========== Planning ========== -->
+	<details class="sec" open>
+		<summary>Planning <span class="saved" id="schSaved">enregistré</span></summary>
+		<div class="grid2">
+			<div><label>Sur-titre</label><input data-path="schedule.kicker"></div>
+			<div><label>Titre</label><input data-path="schedule.title"></div>
+		</div>
+		<div id="schList"></div>
+		<div class="row">
+			<button class="gold" id="schAdd">+ Ajouter un match</button>
+			<button id="schSort" class="shrink">Trier par heure</button>
+		</div>
+		<div class="hint">Les matchs « Terminé » apparaissent dans les résultats de l'écran de fin. Les scores sont ceux de la série (maps gagnées).</div>
+	</details>
+
+	<!-- ========== Tournoi ========== -->
+	<details class="sec">
+		<summary>Infos tournoi</summary>
+		<div class="grid2">
+			<div><label>Nom</label><input data-t="name"></div>
+			<div><label>Présenté par</label><input data-t="presentedBy"></div>
+		</div>
+		<label>Édition</label><input data-t="edition">
+		<label>Sous-titre (ex. Tournoi Valorant 5v5)</label><input data-t="subtitle">
+		<div class="grid2">
+			<div><label>Dates</label><input data-t="dates"></div>
+			<div><label>Hashtag</label><input data-t="hashtag"></div>
+		</div>
+		<label>Lieu</label><input data-t="location">
+	</details>
+
+	<details class="sec">
+		<summary>Aperçus</summary>
+		<div class="links">
+			<a href="../graphics/starting.html" target="_blank">Attente</a>
+			<a href="../graphics/brb.html" target="_blank">Pause</a>
+			<a href="../graphics/ending.html" target="_blank">Fin</a>
+			<a href="../graphics/schedule.html" target="_blank">Planning</a>
+		</div>
+	</details>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/scenes.js"></script>
+	<script>
+		const S = KBScenes, $ = KB.$, $$ = KB.$$, esc = KB.esc;
+		const clone = (v) => JSON.parse(JSON.stringify(v));
+		const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+		const setPath = (o, p, v) => { const ks = p.split('.'); let a = o; ks.slice(0, -1).forEach((k) => { a = a[k] = a[k] && typeof a[k] === 'object' ? a[k] : {}; }); a[ks[ks.length - 1]] = v; };
+
+		/* ---------- Compte à rebours ---------- */
+		const cdRep = KB.rep.countdown;
+		const setCd = (patch) => { cdRep.value = { ...(cdRep.value || {}), ...patch }; };
+		$('#cdStartMin').onclick = () => { const m = parseFloat($('#cdMin').value); if (!(m >= 0)) return; setCd({ endsAt: Date.now() + m * 60000 }); };
+		$('#cdStartAt').onclick = () => {
+			const v = $('#cdAt').value; if (!v) return;
+			const [h, mi] = v.split(':').map(Number);
+			const d = new Date(); d.setHours(h, mi, 0, 0);
+			if (d.getTime() < Date.now() - 60000) d.setDate(d.getDate() + 1); // heure passée → demain
+			setCd({ endsAt: d.getTime() });
+		};
+		$$('[data-add]').forEach((b) => b.onclick = () => {
+			const now = Date.now(), cur = cdRep.value && cdRep.value.endsAt;
+			setCd({ endsAt: Math.max(now, (cur && cur > now ? cur : now) + Number(b.dataset.add) * 60000) });
+		});
+		$('#cdReset').onclick = () => setCd({ endsAt: null });
+		$('#cdLabel').addEventListener('change', (e) => setCd({ label: e.target.value }));
+
+		function tickCd() {
+			if (cdRep.status !== 'declared') return;
+			const cd = cdRep.value || {}, el = $('#cdNow');
+			el.className = 'big';
+			if (!cd.endsAt) { el.textContent = 'Arrêté'; el.classList.add('none'); $('#cdInfo').textContent = ''; }
+			else {
+				const ms = cd.endsAt - Date.now();
+				if (ms > 0) el.textContent = KB.formatCountdown(ms);
+				else { el.textContent = S.texts().countdownZero || "C'est parti"; el.classList.add('zero'); }
+				$('#cdInfo').textContent = 'fin à ' + new Date(cd.endsAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+			}
+			if (document.activeElement !== $('#cdLabel')) $('#cdLabel').value = cd.label || '';
+		}
+		setInterval(tickCd, 250);
+
+		/* ---------- Textes (scenesTexts) ---------- */
+		function writeText(el) {
+			const v = clone(S.texts());
+			setPath(v, el.dataset.path, el.type === 'checkbox' ? el.checked : el.value);
+			S.rep.value = v;
+		}
+		$$('[data-path]').forEach((el) => {
+			el.addEventListener('change', () => writeText(el));
+			if (el.type !== 'checkbox') { let t; el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => writeText(el), 400); }); }
+		});
+		function renderTexts() {
+			const tx = S.texts();
+			$$('[data-path]').forEach((el) => {
+				if (el === document.activeElement) return;
+				const v = getPath(tx, el.dataset.path);
+				if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+			});
+		}
+
+		/* ---------- Tournoi ---------- */
+		$$('[data-t]').forEach((el) => el.addEventListener('change', () => {
+			KB.rep.tournament.value = { ...(KB.rep.tournament.value || {}), [el.dataset.t]: el.value };
+		}));
+		function renderTournament() {
+			const t = KB.rep.tournament.value || {};
+			$$('[data-t]').forEach((el) => { if (el !== document.activeElement) el.value = t[el.dataset.t] ?? ''; });
+		}
+
+		/* ---------- Planning ---------- */
+		const sch = KB.rep.schedule;
+		const list = $('#schList');
+		let pending = false;
+		function saveSchedule(rows) {
+			sch.value = rows;
+			const s = $('#schSaved'); s.classList.add('on'); clearTimeout(saveSchedule.t); saveSchedule.t = setTimeout(() => s.classList.remove('on'), 900);
+		}
+		function teamOptions(sel) {
+			const teams = Object.values(KB.rep.teams.value || {}).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+			return `<option value="">— À déterminer —</option>` + teams.map((t) => `<option value="${esc(t.id)}" ${t.id === sel ? 'selected' : ''}>${esc(t.name)}${t.tag ? ' (' + esc(t.tag) + ')' : ''}</option>`).join('')
+				+ (sel && !(KB.rep.teams.value || {})[sel] ? `<option value="${esc(sel)}" selected>? ${esc(sel)}</option>` : '');
+		}
+		function renderSchedule() {
+			if (list.contains(document.activeElement)) { pending = true; return; }
+			pending = false;
+			const rows = sch.value || [];
+			if (!rows.length) { list.innerHTML = '<p class="empty">Aucun match au planning.</p>'; return; }
+			list.innerHTML = rows.map((r, i) => {
+				const st = r.status || 'upcoming';
+				return `<div class="card sch ${esc(st)}" data-i="${i}">
+					<div class="row" style="margin-top:0">
+						<span class="idx">${i + 1}</span>
+						<input class="w-time" data-f="time" value="${esc(r.time || '')}" placeholder="14:00">
+						<input data-f="label" value="${esc(r.label || '')}" placeholder="Phase / libellé">
+						<button class="w-icon" data-act="up" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
+						<button class="w-icon" data-act="down" title="Descendre" ${i === rows.length - 1 ? 'disabled' : ''}>↓</button>
+						<button class="w-icon danger" data-act="del" title="Supprimer">✕</button>
+					</div>
+					<div class="row">
+						<select data-f="teamA">${teamOptions(r.teamA)}</select>
+						<span class="vs">vs</span>
+						<select data-f="teamB">${teamOptions(r.teamB)}</select>
+					</div>
+					<div class="row">
+						<select data-f="status">
+							<option value="upcoming" ${st === 'upcoming' ? 'selected' : ''}>À venir</option>
+							<option value="live" ${st === 'live' ? 'selected' : ''}>En cours</option>
+							<option value="done" ${st === 'done' ? 'selected' : ''}>Terminé</option>
+						</select>
+						<input type="number" min="0" class="w-num" data-f="scoreA" value="${r.scoreA ?? ''}" placeholder="0" title="Score équipe 1">
+						<span class="vs">–</span>
+						<input type="number" min="0" class="w-num" data-f="scoreB" value="${r.scoreB ?? ''}" placeholder="0" title="Score équipe 2">
+					</div>
+				</div>`;
+			}).join('');
+		}
+		list.addEventListener('change', (e) => {
+			const card = e.target.closest('.sch'); const f = e.target.dataset.f; if (!card || !f) return;
+			const rows = clone(sch.value || []); const r = rows[+card.dataset.i]; if (!r) return;
+			let v = e.target.value;
+			if (f === 'teamA' || f === 'teamB') v = v || null;
+			if (f === 'scoreA' || f === 'scoreB') v = v === '' ? null : Math.max(0, parseInt(v, 10) || 0);
+			r[f] = v;
+			if (f === 'status') card.className = 'card sch ' + v;
+			saveSchedule(rows);
+		});
+		list.addEventListener('focusout', () => setTimeout(() => { if (pending && !list.contains(document.activeElement)) renderSchedule(); }, 0));
+		list.addEventListener('click', (e) => {
+			const b = e.target.closest('[data-act]'); if (!b) return;
+			const i = +b.closest('.sch').dataset.i; const rows = clone(sch.value || []);
+			if (b.dataset.act === 'del') { if (!confirm(`Supprimer « ${rows[i].label || 'match ' + (i + 1)} » ?`)) return; rows.splice(i, 1); }
+			if (b.dataset.act === 'up' && i > 0) [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]];
+			if (b.dataset.act === 'down' && i < rows.length - 1) [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]];
+			document.activeElement && document.activeElement.blur();
+			saveSchedule(rows);
+		});
+		$('#schAdd').onclick = () => {
+			const rows = clone(sch.value || []);
+			const last = rows[rows.length - 1];
+			let time = '';
+			if (last && /^\d{1,2}:\d{2}$/.test(last.time || '')) { const [h, m] = last.time.split(':').map(Number); const t = h * 60 + m + 90; time = `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
+			rows.push({ time, label: '', teamA: null, teamB: null, status: 'upcoming', scoreA: null, scoreB: null });
+			document.activeElement && document.activeElement.blur();
+			saveSchedule(rows);
+		};
+		$('#schSort').onclick = () => {
+			const key = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : 1e9; };
+			saveSchedule(clone(sch.value || []).sort((a, b) => key(a.time) - key(b.time)));
+		};
+
+		/* ---------- Rotation (scenesRotation) ---------- */
+		const rotList = $('#rotList');
+		let rotPending = false;
+		$('#rotType').innerHTML = Object.entries(S.ROTATION_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
+		function saveRot(items) {
+			S.rotRep.value = { items };
+			const el = $('#rotSaved'); el.classList.add('on'); clearTimeout(saveRot.t); saveRot.t = setTimeout(() => el.classList.remove('on'), 900);
+		}
+		const rotItems = () => clone(S.rotation());
+		function renderRot() {
+			if (rotList.contains(document.activeElement) && document.activeElement.tagName !== 'BUTTON') { rotPending = true; return; }
+			rotPending = false;
+			const items = S.rotation();
+			if (!items.length) { rotList.innerHTML = '<p class="empty">Aucun élément : le bandeau est masqué.</p>'; return; }
+			rotList.innerHTML = items.map((it, i) => {
+				const def = S.ROTATION_TYPES[it.type];
+				const isText = it.type === 'text';
+				return `<div class="card rot ${it.enabled ? '' : 'off'}" data-i="${i}">
+					<div class="row" style="margin-top:0">
+						<input type="checkbox" data-f="enabled" ${it.enabled ? 'checked' : ''} title="Activer / désactiver">
+						<span class="ttl">${i + 1}. ${esc(def.name)}</span>
+						<input type="number" min="3" max="120" class="dur" data-f="duration" value="${it.duration}" title="Durée d'affichage (secondes)"><span class="sfx">s</span>
+						<button class="w-icon" data-act="up" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
+						<button class="w-icon" data-act="down" title="Descendre" ${i === items.length - 1 ? 'disabled' : ''}>↓</button>
+						<button class="w-icon danger" data-act="del" title="Supprimer">✕</button>
+					</div>
+					<div class="grid2" style="margin-top:6px">
+						<input data-f="kicker" value="${esc(it.kicker || '')}" placeholder="Sur-titre : ${esc(def.kicker)}">
+						<input data-f="label" value="${esc(it.label || '')}" placeholder="Badge : ${esc(def.label)}">
+					</div>
+					${isText ? `<input data-f="title" style="margin-top:6px" value="${esc(it.title || '')}" placeholder="Titre (grand texte)">
+					<input data-f="subtitle" style="margin-top:6px" value="${esc(it.subtitle || '')}" placeholder="Sous-titre">` : ''}
+				</div>`;
+			}).join('');
+		}
+		rotList.addEventListener('change', (e) => {
+			const card = e.target.closest('.rot'); const f = e.target.dataset.f; if (!card || !f) return;
+			const items = rotItems(); const it = items[+card.dataset.i]; if (!it) return;
+			if (f === 'enabled') { it.enabled = e.target.checked; card.classList.toggle('off', !it.enabled); }
+			else if (f === 'duration') it.duration = Math.min(120, Math.max(3, parseInt(e.target.value, 10) || 8));
+			else it[f] = e.target.value;
+			saveRot(items);
+		});
+		rotList.addEventListener('focusout', () => setTimeout(() => { if (rotPending && !rotList.contains(document.activeElement)) renderRot(); }, 0));
+		rotList.addEventListener('click', (e) => {
+			const b = e.target.closest('[data-act]'); if (!b) return;
+			const i = +b.closest('.rot').dataset.i; const items = rotItems();
+			if (b.dataset.act === 'del') { if (!confirm(`Retirer « ${S.ROTATION_TYPES[items[i].type].name} » de la rotation ?`)) return; items.splice(i, 1); }
+			if (b.dataset.act === 'up' && i > 0) [items[i - 1], items[i]] = [items[i], items[i - 1]];
+			if (b.dataset.act === 'down' && i < items.length - 1) [items[i + 1], items[i]] = [items[i], items[i + 1]];
+			saveRot(items);
+		});
+		$('#rotAdd').onclick = () => {
+			const type = $('#rotType').value; const items = rotItems();
+			const it = { id: 'r' + Date.now().toString(36), type, enabled: true, duration: 8 };
+			if (type === 'text') Object.assign(it, { title: 'Votre texte ici', subtitle: '' });
+			items.push(it); saveRot(items);
+		};
+		$('#rotReset').onclick = () => { if (confirm('Remettre la rotation par défaut ?')) saveRot(clone(S.DEFAULT_ROTATION.items)); };
+
+		KB.watch([S.rotRep], renderRot);
+		KB.watch(['countdown'], tickCd);
+		KB.watch([S.rep], renderTexts);
+		KB.watch(['tournament'], renderTournament);
+		KB.watch(['schedule', 'teams'], renderSchedule);
+	</script>
+</body>
+</html>

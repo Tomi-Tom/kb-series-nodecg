@@ -1,0 +1,228 @@
+{
+  "name": "valorant-tournament",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NodeCG bundle: overlays & dashboard pour stream de tournoi Valorant",
+  "scripts": {
+    "start": "node node_modules/nodecg/index.js",
+    "dev": "node --watch-path=extension --watch-path=package.json node_modules/nodecg/index.js",
+    "postinstall": "node tools/patch-deps.js"
+  },
+  "nodecg": {
+    "compatibleRange": "^2.0.0",
+    "assetCategories": [
+      {
+        "name": "team-logos",
+        "title": "Logos équipes",
+        "allowedTypes": [
+          "png",
+          "jpg",
+          "jpeg",
+          "svg",
+          "webp",
+          "gif"
+        ]
+      },
+      {
+        "name": "sponsors",
+        "title": "Logos sponsors",
+        "allowedTypes": [
+          "png",
+          "jpg",
+          "jpeg",
+          "svg",
+          "webp"
+        ]
+      },
+      {
+        "name": "player-photos",
+        "title": "Photos joueurs (PNG détouré conseillé)",
+        "allowedTypes": [
+          "png",
+          "webp",
+          "jpg",
+          "jpeg"
+        ]
+      }
+    ],
+    "dashboardPanels": [
+      {
+        "name": "regie",
+        "title": "Régie · tout afficher / masquer",
+        "file": "regie.html",
+        "width": 4,
+        "headerColor": "#c9b274"
+      },
+      {
+        "name": "live",
+        "title": "Live · scorebug, lower third, casters",
+        "file": "live.html",
+        "width": 4,
+        "headerColor": "#2b2fb5"
+      },
+      {
+        "name": "maps-transitions",
+        "title": "Maps & Transitions",
+        "file": "maps-transitions.html",
+        "width": 4,
+        "headerColor": "#2b2fb5"
+      },
+      {
+        "name": "players",
+        "title": "Équipes & Joueurs",
+        "file": "players.html",
+        "width": 8,
+        "headerColor": "#2b2fb5",
+        "workspace": "1. Match & Joueurs"
+      },
+      {
+        "name": "match",
+        "title": "Match (maps, scores, agents)",
+        "file": "match.html",
+        "width": 6,
+        "headerColor": "#2b2fb5",
+        "workspace": "1. Match & Joueurs"
+      },
+      {
+        "name": "veto",
+        "title": "Veto des maps",
+        "file": "veto.html",
+        "width": 4,
+        "headerColor": "#2b2fb5",
+        "workspace": "1. Match & Joueurs"
+      },
+      {
+        "name": "player-stats",
+        "title": "Stats Joueur (tracker.gg)",
+        "file": "player-stats.html",
+        "width": 4,
+        "headerColor": "#2b2fb5",
+        "workspace": "1. Match & Joueurs"
+      },
+      {
+        "name": "scenes",
+        "title": "Écrans (attente, pause, fin, planning)",
+        "file": "scenes.html",
+        "width": 4,
+        "headerColor": "#2b2fb5",
+        "workspace": "2. Écrans & Tournoi"
+      },
+      {
+        "name": "bracket",
+        "title": "Bracket & Groupes",
+        "file": "bracket.html",
+        "width": 6,
+        "headerColor": "#2b2fb5",
+        "workspace": "2. Écrans & Tournoi"
+      }
+    ],
+    "graphics": [
+      {
+        "file": "stream.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "starting.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "brb.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "ending.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "schedule.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "transition.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "lower-third.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "ticker.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "dual-cam.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "versus.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "veto.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "veto-recap.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "map-intro.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "map-series.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "map-result.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "player-stats.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "player-duel.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "groups.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "bracket.html",
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "dependencies": {
+    "nodecg": "^2.8.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "msgpackr-extract@3.0.4": true
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0",
+    "sharp": "^0.35.5"
+  }
+}

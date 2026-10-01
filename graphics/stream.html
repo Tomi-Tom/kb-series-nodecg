@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>KB SERIES · Stream (toutes les couches)</title>
+	<!--
+		Page maîtresse : UNE seule source navigateur OBS (1920×1080) qui contient tous les overlays.
+		Couches (de bas en haut) :
+		  1. Scène de fond choisie dans la régie (Bientôt, Pause, Fin, Planning, 50/50) — ou rien (jeu en dessous dans OBS)
+		  2. Overlays plein écran (versus, veto, maps, joueurs, bracket…) — chacun gère son affichage via son replicant
+		  3. Overlays en jeu (lower thirds, ticker)
+		  4. Transition (stinger) tout en haut
+		Replicant `streamScene` = { scene: 'none'|'starting'|'brb'|'ending'|'schedule'|'dual-cam', via: 'cut'|'fade'|'stinger', at }
+	-->
+	<style>
+		html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+		iframe { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; background: transparent; pointer-events: none; }
+		.scene { transition: opacity .5s ease; }
+		.scene.fading { opacity: 0; }
+	</style>
+</head>
+<body>
+	<div id="scenes"></div>
+	<div id="layers"></div>
+	<script src="../shared/maps.js"></script>
+	<script>
+		const BASE = './';
+		// Ordre = ordre d'empilement (le dernier est au-dessus)
+		const LAYERS = [
+			'groups', 'bracket',
+			'map-series', 'map-intro', 'map-result',
+			'veto', 'veto-recap', 'versus',
+			'player-stats', 'player-duel',
+			'lower-third', 'ticker',
+			'transition',
+		];
+		const SCENES = ['starting', 'brb', 'ending', 'schedule', 'dual-cam'];
+		// Moment où couper sous le stinger : milieu de la phase où il couvre tout l'écran,
+		// calculé depuis les durées réglées (replicant mapsTransitionSettings) et selon qu'une map est affichée
+		const trSettings = KBM.trRep();
+		const trState = nodecg.Replicant('transition');
+		const stingerCoverMs = () => KBM.stingerTiming(KBM.trSettings(trSettings.value), !!(trState.value && trState.value.map)).cut;
+
+		const layers = document.getElementById('layers');
+		for (const name of LAYERS) {
+			const f = document.createElement('iframe');
+			f.src = BASE + name + '.html';
+			f.title = name;
+			f.dataset.layer = name;
+			layers.appendChild(f);
+		}
+
+		// ---------- Scène de fond ----------
+		const scenesBox = document.getElementById('scenes');
+		let current = { scene: 'none', el: null };
+		let pending = null;
+
+		function mount(scene, fade) {
+			const old = current.el;
+			let el = null;
+			if (scene && scene !== 'none' && SCENES.includes(scene)) {
+				el = document.createElement('iframe');
+				el.className = 'scene' + (fade ? ' fading' : '');
+				el.src = BASE + scene + '.html';
+				el.title = scene;
+				scenesBox.appendChild(el);
+				if (fade) el.addEventListener('load', () => requestAnimationFrame(() => el.classList.remove('fading')), { once: true });
+			}
+			current = { scene, el };
+			if (old) {
+				if (fade) { old.classList.add('fading'); setTimeout(() => old.remove(), 550); }
+				else old.remove();
+			}
+		}
+
+		// Rechargement automatique quand le code des overlays change (les iframes se rechargent aussi d'elles-mêmes)
+		const kbBuild = nodecg.Replicant('kbBuild', { defaultValue: 0, persistent: false });
+		let firstBuild = null;
+		kbBuild.on('change', (v) => {
+			if (firstBuild === null) { firstBuild = v; return; }
+			if (v && v !== firstBuild) setTimeout(() => location.reload(), 1200);
+		});
+
+		const streamScene = nodecg.Replicant('streamScene',{ defaultValue: { scene: 'none', via: 'cut', at: 0 } });
+		let first = true;
+		streamScene.on('change', (v) => {
+			if (!v) return;
+			if (first) { first = false; mount(v.scene, false); return; } // au chargement : pas de transition
+			if (v.scene === current.scene) return;
+			clearTimeout(pending);
+			if (v.via === 'stinger') pending = setTimeout(() => mount(v.scene, false), stingerCoverMs());
+			else mount(v.scene, v.via === 'fade');
+		});
+	</script>
+</body>
+</html>

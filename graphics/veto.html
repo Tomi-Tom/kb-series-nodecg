@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="../shared/theme.css">
+	<link rel="stylesheet" href="../shared/match.css">
+	<style>
+		#stage { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
+		#stage.kb-in { opacity: 1; }
+		#stage.kb-out { opacity: 0; transition-duration: .4s; }
+
+		/* ---------- En-tête ---------- */
+		#head { position: absolute; left: 64px; right: 64px; top: 58px; height: 170px; display: grid; grid-template-columns: 1fr 620px 1fr; align-items: center; }
+		#title { text-align: center; }
+		#title .kb-kicker { font-size: 18px; }
+		#title h1 { margin: 6px 0 10px; font: 400 88px/0.95 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; }
+		#title .kb-rule { width: 420px; margin: 0 auto; }
+		.kb-in #title .kb-rule { animation: rule-in .9s var(--kb-ease-out) .5s both; }
+		@keyframes rule-in { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+
+		.team { position: relative; display: flex; align-items: center; gap: 22px; height: 150px; padding: 0 30px; min-width: 0; }
+		.team.right { flex-direction: row-reverse; text-align: right; }
+		.team::before { content: ''; position: absolute; inset: 14px 0; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 34%, transparent), transparent 85%); clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%); opacity: .8; }
+		.team.right::before { background: linear-gradient(270deg, color-mix(in srgb, var(--c) 34%, transparent), transparent 85%); clip-path: polygon(0 0, 100% 0, 100% 100%, 40px 100%); }
+		.team::after { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 6px; background: var(--c); box-shadow: 0 0 14px var(--c); transition: width .3s ease; }
+		.team.right::after { left: auto; right: 0; }
+		.team > * { position: relative; }
+		.team .logo { flex: 0 0 110px; display: grid; place-items: center; }
+		.team .txt { min-width: 0; flex: 1; }
+		.team .name { font: 400 52px/1.1 var(--kb-display); padding-top: 2px; text-transform: uppercase; white-space: nowrap; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+		.team .sub { margin-top: 8px; font: 600 16px var(--kb-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--kb-muted); white-space: nowrap; }
+		.team .turn { display: none; margin-top: 10px; padding: 4px 16px; font-size: 14px; }
+		.team.is-turn .turn { display: inline-block; animation: pulse 1.4s ease-in-out infinite; }
+		.team.is-turn::after { width: 12px; }
+		@keyframes pulse { 50% { opacity: .55; } }
+
+		/* ---------- Cartes de maps ---------- */
+		#cards { position: absolute; left: 64px; right: 64px; top: 266px; height: 620px; display: flex; justify-content: center; gap: 20px; }
+		.cardWrap { flex: 0 0 var(--w); height: 100%; }
+		.card { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--kb-night-2); clip-path: polygon(var(--kb-cut) 0, 100% 0, 100% calc(100% - var(--kb-cut)), calc(100% - var(--kb-cut)) 100%, 0 100%, 0 var(--kb-cut)); transition: transform .5s var(--kb-ease-out); }
+		.card .img { position: absolute; inset: 0; background: center / cover no-repeat; transition: filter .6s ease; filter: brightness(.62) saturate(.8); }
+		.card .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 6, 26, .7) 0%, transparent 22%, transparent 48%, rgba(4, 6, 26, .95) 82%); }
+		.card .border { position: absolute; inset: 0; border: 2px solid var(--kb-line); pointer-events: none; transition: border-color .4s ease, box-shadow .4s ease; }
+		.card .top { position: absolute; left: 0; right: 0; top: 18px; display: flex; justify-content: space-between; align-items: center; padding: 0 16px 0 24px; }
+		.card .num { font: 700 20px var(--kb-num); letter-spacing: .1em; color: var(--kb-muted); }
+		.card .tag { padding: 4px 14px; font: 700 15px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; }
+		.card .bottom { position: absolute; left: 0; right: 0; bottom: 20px; padding: 0 16px; text-align: center; }
+		.card .name { font: 400 46px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; }
+		.card .info { min-height: 96px; margin-top: 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; }
+		.card .by { display: flex; align-items: center; justify-content: center; gap: 10px; font: 700 17px var(--kb-ui); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+		.card .side { font: 600 14px var(--kb-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--kb-muted); white-space: nowrap; }
+		.card .side b { color: var(--kb-text); font-weight: 700; }
+		.card .side.wait { color: var(--kb-gold); animation: pulse 1.4s ease-in-out infinite; }
+		.card .slash { position: absolute; left: 50%; top: 42%; width: 170%; height: 8px; background: var(--kb-red); box-shadow: 0 0 18px rgba(255, 70, 85, .7); transform: translate(-50%, -50%) rotate(-66deg) scaleX(0); transition: transform .5s var(--kb-ease-out) .1s; }
+
+		/* Ban */
+		.card.ban .img { filter: grayscale(1) brightness(.32); }
+		.card.ban .border { border-color: rgba(255, 70, 85, .55); }
+		.card.ban .slash { transform: translate(-50%, -50%) rotate(-66deg) scaleX(1); }
+		.card.ban .tag { background: var(--kb-red); color: #fff; }
+		.card.ban .name { color: rgba(243, 241, 234, .5); }
+		.card.ban .by img, .card.ban .by .kb-team-mono { filter: grayscale(.3); }
+		/* Pick */
+		.card.pick { transform: translateY(-12px); }
+		.card.pick .img { filter: brightness(.95) saturate(1.1); }
+		.card.pick .border { border: 4px solid var(--c); box-shadow: inset 0 0 40px color-mix(in srgb, var(--c) 60%, transparent); }
+		.card.pick .tag { background: var(--c); color: #04061a; }
+		.card.pick .shade { background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, color-mix(in srgb, var(--c) 28%, rgba(4, 6, 26, .95)) 80%); }
+		/* Decider */
+		.card.decider { transform: translateY(-12px); }
+		.card.decider .img { filter: brightness(.95) saturate(1.1); }
+		.card.decider .border { border: 4px solid var(--kb-gold-hi); box-shadow: inset 0 0 50px rgba(245, 196, 69, .45); }
+		.card.decider .tag { background: linear-gradient(180deg, #ffe08a, var(--kb-gold-hi)); color: #1a1430; }
+		.card.decider .name { color: #ffe9b0; }
+		.card.decider .shade { background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, rgba(60, 44, 10, .95) 82%); }
+		/* Pas encore jouée */
+		.card.idle .tag { display: none; }
+
+		/* Étape qui vient d'être ajoutée */
+		.card .flash { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .45) 50%, transparent 70%); transform: translateX(-120%); pointer-events: none; }
+		.card.just { animation: card-hit .7s var(--kb-ease-out); }
+		.card.just .flash { animation: sweep .9s ease .1s; }
+		.card.just .tag { animation: kb-pop .5s var(--kb-ease-out); }
+		@keyframes card-hit { 0% { transform: scale(1.08); } }
+		@keyframes sweep { to { transform: translateX(120%); } }
+
+		/* ---------- Pied : à qui le tour ---------- */
+		#turnWrap { position: absolute; left: 0; right: 0; bottom: 72px; display: flex; justify-content: center; }
+		#turn { position: relative; z-index: 0; display: flex; align-items: center; justify-content: center; gap: 18px; min-width: 900px; max-width: 1180px; height: 84px; padding: 0 80px; white-space: nowrap; }
+		#turn::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(10, 15, 46, .82); border-top: 2px solid var(--kb-gold); border-bottom: 2px solid var(--kb-gold); clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%); }
+		#turn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(100deg, transparent 42%, rgba(245, 196, 69, .16) 50%, transparent 58%); background-size: 300% 100%; clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%); animation: turn-sweep 6s linear infinite; }
+		@keyframes turn-sweep { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+		.card .gl { position: absolute; inset: 0; pointer-events: none; }
+		.card.ban .gl { display: none; }
+		.team.is-turn::after { animation: turn-glow 1.4s ease-in-out infinite; }
+		@keyframes turn-glow { 50% { opacity: .55; } }
+		#turn .lbl { font: 700 18px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-gold); }
+		#turn .who { font: 400 40px/1.1 var(--kb-display); text-transform: uppercase; max-width: 560px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		#turn .act { font: 400 40px/1 var(--kb-display); text-transform: uppercase; color: var(--c, var(--kb-blue-hi)); }
+		#turn .act.ban { color: var(--kb-red); }
+		#turn .act.decider { color: var(--kb-gold-hi); }
+		#turn .sep { width: 8px; height: 8px; background: var(--kb-gold); transform: rotate(45deg); }
+		#turn .series { display: flex; gap: 28px; }
+		#turn .series span { font: 400 36px/1 var(--kb-display); text-transform: uppercase; }
+		#turn .series small { font: 700 14px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); margin-right: 10px; vertical-align: middle; }
+		#turn.swap-anim { animation: kb-pop .5s var(--kb-ease-out) both; }
+		#logoKbs { position: absolute; right: 70px; bottom: 50px; width: 120px; }
+		#partners { position: absolute; left: 70px; bottom: 82px; display: flex; align-items: center; gap: 16px; font: 600 13px var(--kb-ui); letter-spacing: .25em; text-transform: uppercase; color: var(--kb-muted); }
+		#partners img { height: 34px; }
+		#empty { position: absolute; left: 0; right: 0; top: 500px; display: none; text-align: center; font: 600 22px var(--kb-ui); letter-spacing: .25em; text-transform: uppercase; color: var(--kb-muted); }
+	</style>
+</head>
+<body>
+	<div id="stage">
+		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div><div class="m-drift"></div></div>
+		<div class="kb-frame"></div>
+
+		<div id="head">
+			<div class="team left kb-anim kb-anim--left" id="teamL" style="--i:1"></div>
+			<div id="title">
+				<div class="kb-kicker kb-anim" id="kicker" style="--i:0"></div>
+				<h1 class="kb-anim" style="--i:1">Veto des maps</h1>
+				<div class="kb-rule kb-rule--gold m-sweep"></div>
+			</div>
+			<div class="team right kb-anim kb-anim--right" id="teamR" style="--i:1"></div>
+		</div>
+
+		<div id="cards"></div>
+		<div id="turnWrap"><div id="turn" class="kb-anim" style="--i:12"></div></div>
+		<div id="partners" class="kb-anim" style="--i:13"><span>Présenté par</span><img id="logoCycom" alt=""><img id="logoEpitech" alt=""></div>
+		<img id="logoKbs" class="kb-logo kb-anim kb-anim--pop" style="--i:13" alt="">
+		<div id="empty">Aucune map dans le pool</div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/match.js"></script>
+	<script>
+		const M = window.KBMatch;
+		const clone = (v) => JSON.parse(JSON.stringify(v));
+		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
+		const plan = nodecg.Replicant('matchVeto', { defaultValue: clone(M.MATCH_DEFAULTS.matchVeto) });
+		const stage = KB.$('#stage');
+		const presence = KB.presence(stage, 450);
+		KB.$('#logoKbs').src = KB.img.kbs;
+		KB.$('#logoCycom').src = KB.img.cycom;
+		KB.$('#logoEpitech').src = KB.img.epitech;
+
+		let poolKey = null;      // reconstruit les cartes quand le pool change
+		let prevStates = {};     // état précédent de chaque carte (pour l'animation d'ajout)
+		let prevTurn = '';
+
+		const teamOf = (key) => KB.team(key === 'A' ? KB.rep.match.value.teamA : key === 'B' ? KB.rep.match.value.teamB : null);
+		const color = (key) => { const t = teamOf(key); return (t && t.color) || (key === 'B' ? '#ff4655' : '#3b8fe6'); };
+		const short = (t, key) => (t ? t.tag || t.name : 'Équipe ' + (key || '?'));
+		const sideTeamOf = (steps, i) => steps[i].sideTeam || M.defaultSideTeam(steps, i);
+
+		function renderTeams(st) {
+			const sides = KB.sides();
+			const steps = KB.rep.veto.value.steps || [];
+			const turnKey = st.pendingSide >= 0 ? sideTeamOf(steps, st.pendingSide) : st.next && st.next.team;
+			for (const [el, team, key] of [[KB.$('#teamL'), sides.left, sides.leftKey], [KB.$('#teamR'), sides.right, sides.rightKey]]) {
+				el.style.setProperty('--c', color(key));
+				el.classList.toggle('is-turn', !!turnKey && turnKey === key);
+				el.innerHTML = `<div class="logo">${KB.teamLogo(team, 110)}</div>
+					<div class="txt"><div class="name">${KB.esc(team ? team.name : 'Équipe ' + key)}</div>
+					<div class="sub">${team && team.tag ? KB.esc(team.tag) + ' · ' : ''}Équipe ${key}</div>
+					<span class="kb-pill turn">À son tour</span></div>`;
+				M.fit(el.querySelector('.name'), 52, 34, true);
+			}
+		}
+
+		function cardState(map, steps) {
+			const i = steps.findIndex((s) => s.map === map);
+			if (i < 0) return { key: 'idle', i };
+			const s = steps[i];
+			return { key: `${s.action}|${s.team}|${s.side || ''}|${s.sideTeam || ''}`, i, s };
+		}
+
+		function buildCards(pool) {
+			const n = pool.length;
+			const w = Math.min(240, Math.floor((1792 - 20 * (n - 1)) / Math.max(n, 1)));
+			const box = KB.$('#cards');
+			box.innerHTML = pool.map((m, i) => `<div class="cardWrap kb-anim kb-anim--pop" style="--i:${2 + i};--w:${w}px">
+				<div class="card idle" data-map="${KB.esc(m)}"><div class="img"></div><div class="shade"></div><div class="slash"></div><div class="flash"></div><div class="gl m-glint" style="--gd:${3 + i * 0.9}s"></div><div class="border"></div>
+				<div class="top"><span class="num"></span><span class="tag"></span></div>
+				<div class="bottom"><div class="name">${KB.esc(m)}</div><div class="info"></div></div></div></div>`).join('');
+			KB.$$('.card', box).forEach((c) => {
+				const d = KB.map(c.dataset.map);
+				if (d) c.querySelector('.img').style.backgroundImage = `url("${d.listViewTall || d.splash}")`;
+				M.fit(c.querySelector('.name'), w > 200 ? 46 : 36, 20);
+			});
+			KB.$('#empty').style.display = n ? 'none' : 'block';
+		}
+
+		function renderCards(animate) {
+			const steps = KB.rep.veto.value.steps || [];
+			const order = steps.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
+			const next = {};
+			for (const c of KB.$$('#cards .card')) {
+				const map = c.dataset.map;
+				const cs = cardState(map, steps);
+				next[map] = cs.key;
+				c.classList.remove('idle', 'ban', 'pick', 'decider');
+				c.classList.add(cs.s ? cs.s.action : 'idle');
+				const num = c.querySelector('.num'), tag = c.querySelector('.tag'), info = c.querySelector('.info');
+				if (!cs.s) {
+					num.textContent = ''; tag.textContent = ''; info.innerHTML = '';
+				} else {
+					const s = cs.s, t = teamOf(s.team);
+					c.style.setProperty('--c', color(s.team));
+					num.textContent = '#' + (cs.i + 1);
+					tag.textContent = s.action === 'ban' ? 'Ban' : s.action === 'decider' ? 'Decider' : 'Map ' + (order.indexOf(map) + 1);
+					let html = s.action === 'decider'
+						? `<div class="by" style="color:var(--kb-gold-hi)">Map ${order.indexOf(map) + 1}</div>`
+						: `<div class="by">${KB.teamLogo(t, 40)}<span>${s.action === 'ban' ? 'Ban' : 'Pick'} ${KB.esc(short(t, s.team))}</span></div>`;
+					if (s.action !== 'ban') {
+						const sk = sideTeamOf(steps, cs.i);
+						html += s.side
+							? `<div class="side"><b>${KB.esc(short(teamOf(sk), sk))}</b> en ${KB.esc((M.SIDE_FR[s.side] || s.side).toLowerCase())}</div>`
+							: `<div class="side wait">${KB.esc(short(teamOf(sk), sk))} choisit le côté</div>`;
+					}
+					info.innerHTML = html;
+				}
+				if (animate && prevStates[map] !== undefined && prevStates[map] !== cs.key) {
+					c.classList.remove('just'); void c.offsetWidth; c.classList.add('just');
+					setTimeout(() => c.classList.remove('just'), 1100);
+				}
+			}
+			prevStates = next;
+		}
+
+		function renderTurn(st) {
+			const el = KB.$('#turn');
+			const steps = KB.rep.veto.value.steps || [];
+			let html, key;
+			if (st.pendingSide >= 0) {
+				const s = steps[st.pendingSide];
+				const sk = sideTeamOf(steps, st.pendingSide);
+				const t = teamOf(sk);
+				el.style.setProperty('--c', color(sk));
+				html = `<span class="lbl">Choix du côté</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + sk)}</span><span class="act">sur ${KB.esc(s.map)}</span>`;
+				key = 'side' + st.pendingSide;
+			} else if (st.next) {
+				const n = st.next;
+				if (n.action === 'decider') {
+					html = `<span class="lbl">Étape ${st.index + 1}</span><span class="sep"></span><span class="act decider">Map decider</span>`;
+				} else {
+					const t = teamOf(n.team);
+					el.style.setProperty('--c', color(n.team));
+					html = `<span class="lbl">Au tour de</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + n.team)}</span><span class="act ${n.action}">${n.action === 'ban' ? 'Ban' : 'Pick'}</span>`;
+				}
+				key = 'step' + st.index;
+			} else {
+				const order = steps.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
+				html = `<span class="lbl">Veto terminé</span><span class="sep"></span><div class="series">${order.map((m, i) => `<span><small>Map ${i + 1}</small>${KB.esc(m)}</span>`).join('') || '<span>—</span>'}</div>`;
+				key = 'done';
+			}
+			el.innerHTML = html;
+			M.fit(el.querySelector('.who'), 40, 28);
+			if (prevTurn && key !== prevTurn && presence.visible) { el.classList.remove('swap-anim'); void el.offsetWidth; el.classList.add('swap-anim'); }
+			prevTurn = key;
+		}
+
+		function render(fresh) {
+			const match = KB.rep.match.value || {};
+			const veto = KB.rep.veto.value || { pool: [], steps: [] };
+			const st = M.vetoState(veto, (plan.value && plan.value.sequence) || []);
+			KB.$('#kicker').textContent = [match.stage, KB.formatLabel(match.format)].filter(Boolean).join(' · ');
+			const pool = veto.pool || [];
+			const pk = JSON.stringify(pool) + ((KB.rep.valorantData.value && KB.rep.valorantData.value.updatedAt) || 0);
+			if (fresh || pk !== poolKey) { poolKey = pk; buildCards(pool); prevStates = {}; }
+			renderTeams(st);
+			renderCards(!fresh);
+			renderTurn(st);
+		}
+
+		// Les polices arrivent parfois après le premier rendu : on réajuste les tailles de texte
+		document.fonts.ready.then(() => { if (shown) { poolKey = null; render(false); } });
+
+		let shown = false;
+		KB.watch(['match', 'teams', 'veto', 'valorantData', plan, gfx], () => {
+			const vis = !!(gfx.value && gfx.value.veto && gfx.value.veto.visible);
+			if (vis && !shown) { shown = true; render(true); presence.show(); }
+			else if (!vis && shown) { shown = false; presence.hide(); }
+			else if (shown) render(false);
+		});
+	</script>
+</body>
+</html>

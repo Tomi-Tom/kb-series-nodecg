@@ -1,0 +1,22 @@
+# Serveur perso (VPS) : NodeCG + Caddy (HTTPS automatique Let's Encrypt)
+# 1. Copier .env.example en .env et le remplir  2. docker compose up -d --build
+services:
+  nodecg:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - nodecg-data:/data
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${NODECG_BASE_URL}
+    command: caddy reverse-proxy --from ${NODECG_BASE_URL} --to nodecg:9090
+    volumes:
+      - caddy-data:/data
+    depends_on: [nodecg]
+volumes:
+  nodecg-data:
+  caddy-data:

@@ -1,0 +1,37 @@
+/* Style commun des panneaux de régie (dashboard) — thème KB SERIES */
+:root {
+	--bg: #0a0f2e; --panel: #111845; --panel-2: #1b2366; --line: #2a3480;
+	--text: #f3f1ea; --muted: #8e9ac8; --blue: #3b8fe6; --gold: #c9b274; --red: #ff4655; --ok: #3ddc97;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 12px; background: var(--bg); color: var(--text); font: 14px/1.4 'Segoe UI', system-ui, sans-serif; }
+h3 { margin: 16px 0 8px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+h3:first-child { margin-top: 0; }
+label { display: block; font-size: 12px; color: var(--muted); margin: 6px 0 3px; }
+input, select, textarea { width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; font: inherit; }
+input[type=color] { padding: 2px; height: 34px; }
+input[type=checkbox] { width: auto; }
+textarea { min-height: 70px; resize: vertical; }
+button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; font: 600 13px 'Segoe UI', system-ui, sans-serif; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+button.gold { background: var(--gold); border-color: var(--gold); color: #1a1430; }
+button.danger { background: transparent; border-color: var(--red); color: var(--red); }
+button.show { background: var(--ok); border-color: var(--ok); color: #0a0f2e; }
+button.active { outline: 2px solid var(--gold); outline-offset: 1px; }
+.row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.row > * { flex: 1; }
+.row > .shrink { flex: 0 0 auto; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; margin-top: 6px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.msg { min-height: 18px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.msg.err { color: var(--red); } .msg.ok { color: var(--ok); }
+.status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: 0 0 auto; }
+.dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.empty { color: var(--muted); font-size: 12px; font-style: italic; }
+details { margin-top: 8px; } summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+a { color: var(--blue); }

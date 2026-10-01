@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>Transition KB SERIES</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<style>
+		/* Stinger plein écran : volets (clip-path) qui couvrent puis découvrent l'écran.
+		   Toute l'animation est une fonction du temps : apply(t) — même rendu en direct, en aperçu et en export.
+		   Réglages : replicant mapsTransitionSettings ; géométrie / couverture : KBM.stingerModel (shared/maps.js).
+		   Modes : normal (écoute le replicant `transition`), ?preview=1 (piloté par postMessage, n'écoute rien),
+		           ?export=1 (piloté image par image par tools/export-stinger.js). */
+		#stinger { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
+		#stinger.play { visibility: visible; }
+		.wipe { position: absolute; inset: 0; clip-path: polygon(0 0, 0 0, 0 0, 0 0); will-change: clip-path; }
+		.slash { background: linear-gradient(115deg, var(--kb-gold), var(--kb-gold-hi)); }
+		#w-cover { background: radial-gradient(ellipse at 50% 40%, var(--kb-night-3) 0%, var(--kb-night-1) 50%, var(--kb-night-0) 100%); overflow: hidden; }
+
+		/* Contenu de la couverture */
+		#c-splash { position: absolute; inset: -40px; background: center / cover no-repeat; display: none; will-change: transform; }
+		#c-splash::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 6, 26, .6), rgba(10, 15, 46, .5) 50%, rgba(4, 6, 26, .92)), linear-gradient(115deg, rgba(43, 47, 181, .55), transparent 60%); }
+		.has-splash #c-splash { display: block; }
+		#c-art { position: absolute; inset: -30px; background: url('../shared/img/poster-art.png') center 30% / cover no-repeat; opacity: .35; }
+		.has-splash #c-art { display: none; }
+		#c-lines { position: absolute; inset: 0; }
+		#c-lines i { position: absolute; top: -10%; height: 120%; width: 3px; background: linear-gradient(180deg, transparent, var(--kb-gold), transparent); transform: skewX(-20deg); opacity: .5; }
+
+		#c-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+		.title-bottom #c-center { align-items: flex-start; justify-content: flex-end; padding: 0 0 120px 130px; }
+		.title-left #c-center { align-items: flex-start; justify-content: center; padding-left: 130px; }
+		#flare { position: absolute; left: 50%; top: 50%; width: 1000px; height: 1000px; margin: -500px 0 0 -500px; border-radius: 50%;
+			background: radial-gradient(circle, rgba(245, 196, 69, .5) 0%, rgba(94, 196, 255, .3) 25%, rgba(43, 47, 181, .14) 45%, transparent 65%); opacity: 0; }
+		#streak { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: linear-gradient(90deg, transparent, var(--kb-blue-hi) 30%, #fff 50%, var(--kb-blue-hi) 70%, transparent); box-shadow: 0 0 24px var(--kb-blue-glow), 0 0 60px var(--kb-blue-glow); opacity: 0; }
+		#logo { position: relative; width: 440px; height: 440px; object-fit: contain; filter: drop-shadow(0 0 40px rgba(94, 196, 255, .45)) drop-shadow(0 10px 30px rgba(0, 0, 0, .6)); opacity: 0; }
+		#mapblock { position: relative; display: none; flex-direction: column; align-items: center; margin-top: 4px; transform-origin: 50% 50%; }
+		.title-bottom #mapblock, .title-left #mapblock { align-items: flex-start; transform-origin: 0 50%; }
+		.has-map #mapblock { display: flex; }
+		#mapkicker { font: 700 24px var(--kb-ui); letter-spacing: .4em; text-transform: uppercase; color: var(--kb-gold); opacity: 0; }
+		#mapname { font: 400 180px/1.05 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; color: var(--kb-text); text-shadow: 0 0 40px rgba(94, 196, 255, .45), 0 8px 30px rgba(0, 0, 0, .6); opacity: 0; white-space: nowrap; }
+		#maprule { width: 640px; margin-top: 6px; transform: scaleX(0); }
+		.title-bottom #maprule, .title-left #maprule { transform-origin: 0 50%; }
+		#mappick { display: flex; align-items: center; gap: 14px; margin-top: 18px; font: 700 22px var(--kb-ui); letter-spacing: .26em; text-transform: uppercase; color: var(--kb-text); opacity: 0; }
+		#mappick b { color: var(--kb-gold-hi); font-weight: 700; }
+	</style>
+</head>
+<body>
+	<div id="stinger">
+		<div id="panels"></div>
+		<div class="wipe" id="w-cover">
+			<div id="c-art"></div>
+			<div id="c-splash"></div>
+			<div class="kb-bg__stars"></div>
+			<div class="kb-bg__grid"></div>
+			<div id="c-lines"><i style="left:12%"></i><i style="left:13.6%;opacity:.25"></i><i style="left:84%"></i><i style="left:85.6%;opacity:.25"></i></div>
+			<div id="flare"></div>
+			<div id="streak"></div>
+			<div id="c-center">
+				<img id="logo" src="../shared/img/kbs-logo.png" alt="">
+				<div id="mapblock">
+					<div id="mapkicker"></div>
+					<div id="mapname"></div>
+					<div class="kb-rule kb-rule--gold" id="maprule"></div>
+					<div id="mappick"></div>
+				</div>
+			</div>
+			<div class="kb-frame"></div>
+		</div>
+		<div class="wipe slash" id="w-slash1"></div>
+		<div class="wipe slash" id="w-slash2"></div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/maps.js"></script>
+	<script>
+		const $ = (s) => document.querySelector(s);
+		const stinger = $('#stinger');
+		const params = new URLSearchParams(location.search);
+		const EXPORT = params.has('export');
+		const PREVIEW = params.has('preview');
+		const trRep = KBM.trRep();
+
+		const PALETTES = {
+			theme: ['linear-gradient(115deg, #1b2366, #2b2fb5 60%, #3a3fd6)', 'linear-gradient(115deg, #3b8fe6, #5ec4ff)'],
+			gold: ['linear-gradient(115deg, #1b2366, #2b2fb5 60%, #3a3fd6)', 'linear-gradient(115deg, #c9b274, #f5c445)'],
+			red: ['linear-gradient(115deg, #0a0f2e, #1b2366)', 'linear-gradient(115deg, #ff4655, #ff7a85)'],
+			mono: ['#0a0f2e', '#111845', '#1b2366'],
+		};
+		const teamColors = () => {
+			const m = KB.rep.match.value || {};
+			const c = [KB.team(m.teamA), KB.team(m.teamB)].map((t, i) => (t && t.color) || (i ? '#ff4655' : '#3b8fe6'));
+			return c.map((x) => `linear-gradient(115deg, rgba(255, 255, 255, .12), rgba(4, 6, 26, .45)), ${x}`);
+		};
+
+		const ptsCss = (pts) => `polygon(${pts.map(([x, y]) => `${x.toFixed(3)}% ${y.toFixed(3)}%`).join(', ')})`;
+		const HIDDEN = 'polygon(0 0, 0 0, 0 0, 0 0)';
+		const clamp01 = (x) => Math.min(1, Math.max(0, x));
+		const lerp = (a, b, p) => a + (b - a) * p;
+		const out = KBM.EASE.out;
+		const backOut = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+		let M = KBM.stingerModel(KBM.TRANSITION_DEFAULT, false); // modèle courant
+		let panelEls = [];
+
+		/** Prépare la scène (volets, couleurs, contenu) pour une map et des réglages donnés */
+		function setup(mapName, settings) {
+			const m = KB.map(mapName);
+			const label = (m && m.name) || mapName || '';
+			M = KBM.stingerModel(settings, !!label);
+			const s = M.s;
+			// Volets colorés (n-1) + fond nuit (dernier)
+			const pal = s.palette === 'team' ? teamColors() : PALETTES[s.palette] || PALETTES.theme;
+			const box = $('#panels');
+			box.innerHTML = '';
+			panelEls = [];
+			for (let i = 0; i < s.panels - 1; i++) {
+				const el = document.createElement('div');
+				el.className = 'wipe';
+				el.style.background = pal[i % pal.length];
+				box.appendChild(el);
+				panelEls.push(el);
+			}
+			panelEls.push($('#w-cover'));
+			// Contenu
+			stinger.classList.toggle('has-map', !!label);
+			stinger.classList.toggle('has-splash', !!(label && s.mapSplash && m && m.splash));
+			stinger.classList.remove('title-center', 'title-bottom', 'title-left');
+			stinger.classList.add('title-' + s.mapTitle);
+			$('#c-splash').style.backgroundImage = m && m.splash ? `url("${m.splash}")` : 'none';
+			const size = label ? Math.round(s.logoSize * 0.57) : s.logoSize;
+			$('#logo').style.width = $('#logo').style.height = size + 'px';
+			$('#flare').style.display = $('#streak').style.display = s.logoFlare ? '' : 'none';
+			if (label) {
+				const match = KB.rep.match.value || {};
+				const i = (match.maps || []).findIndex((x) => x.map === label);
+				$('#mapkicker').textContent = i >= 0 ? `Map ${i + 1}` : 'Prochaine map';
+				$('#mapkicker').style.display = s.mapNumber ? '' : 'none';
+				$('#mapname').textContent = label;
+				$('#mapname').style.display = s.mapName ? '' : 'none';
+				$('#maprule').style.display = s.mapName ? '' : 'none';
+				$('#mapname').style.fontSize = (label.length > 9 ? Math.max(100, Math.floor(1600 / label.length)) : 180) + 'px';
+				const e = i >= 0 ? match.maps[i] : null;
+				let pick = '';
+				if (s.mapPick && e) {
+					if (e.pickedBy === 'A' || e.pickedBy === 'B') {
+						const t = KB.team(e.pickedBy === 'A' ? match.teamA : match.teamB);
+						pick = `${KB.teamLogo(t, 52)}<span>Pick de <b>${KB.esc(t ? t.name : 'Équipe ' + e.pickedBy)}</b></span>`;
+					} else if (e.pickedBy === 'decider') pick = '<span><b>Decider</b></span>';
+				}
+				$('#mappick').innerHTML = pick;
+				$('#mappick').style.display = pick ? '' : 'none';
+			}
+			return { label, splash: m && m.splash };
+		}
+
+		/** Rendu de l'instant t (ms réelles depuis le début) */
+		function apply(t) {
+			const s = M.s, k = M.k, r = M.r, tb = t * s.speed, exitB = M.base.exitAt;
+			stinger.classList.toggle('play', t > 0 && t < M.duration);
+			const polys = M.panelsAt(t);
+			panelEls.forEach((el, i) => { el.style.clipPath = polys[i] ? ptsCss(polys[i]) : HIDDEN; });
+			const sl = M.slashesAt(t);
+			$('#w-slash1').style.clipPath = sl[0] ? ptsCss(sl[0]) : HIDDEN;
+			$('#w-slash2').style.clipPath = sl[1] ? ptsCss(sl[1]) : HIDDEN;
+			// Logo
+			const lp = clamp01((tb - 360 * k) / Math.max(300, 420 * k));
+			const logo = $('#logo');
+			if (s.logoAnim === 'zoom') { logo.style.opacity = clamp01(lp * 1.6); logo.style.transform = `scale(${lerp(2.4, 1, out(lp))})`; }
+			else if (s.logoAnim === 'flip') { logo.style.opacity = clamp01(lp * 2); logo.style.transform = `perspective(900px) rotateY(${(1 - backOut(lp)) * 100}deg)`; }
+			else if (s.logoAnim === 'fade') { logo.style.opacity = out(lp); logo.style.transform = `scale(${lerp(1.06, 1, out(lp))})`; }
+			else {
+				const a = clamp01(lp / 0.65), b = clamp01((lp - 0.65) / 0.35);
+				logo.style.opacity = clamp01(lp / 0.4);
+				logo.style.transform = `scale(${lp < 0.65 ? lerp(0.55, 1.08, out(a)) : lerp(1.08, 1, b)}) rotate(${-6 * (1 - out(a))}deg)`;
+			}
+			// Éclat
+			if (s.logoFlare) {
+				const fs = 460 * k, fl = Math.max(400, exitB + 250 * r - fs), fp = clamp01((tb - fs) / fl), rise = Math.min(0.5, 245 / fl);
+				const f = $('#flare');
+				if (tb < fs) { f.style.opacity = 0; }
+				else if (fp < rise) { const q = out(fp / rise); f.style.opacity = q; f.style.transform = `scale(${lerp(0.4, 1, q)})`; }
+				else { const q = (fp - rise) / (1 - rise); f.style.opacity = lerp(1, 0.5, q); f.style.transform = `scale(${lerp(1, 1.12, q)})`; }
+				const sp = clamp01((tb - 500 * k) / 560), st = $('#streak');
+				st.style.opacity = tb < 500 * k ? 0 : sp < 0.4 ? sp / 0.4 : 1 - (sp - 0.4) / 0.6;
+				st.style.transform = `scaleX(${sp < 0.4 ? sp / 0.4 : lerp(1, 1.2, (sp - 0.4) / 0.6)})`;
+			}
+			// Map
+			if (stinger.classList.contains('has-map')) {
+				const kp = out(clamp01((tb - 500 * k) / 320));
+				$('#mapkicker').style.opacity = kp; $('#mapkicker').style.transform = `translateY(${16 * (1 - kp)}px)`;
+				const np = out(clamp01((tb - 440 * k) / 440));
+				$('#mapname').style.opacity = np; $('#mapname').style.transform = `translateY(${30 * (1 - np)}px) scale(${lerp(0.96, 1, np)})`;
+				$('#mapname').style.letterSpacing = lerp(0.2, 0.03, np) + 'em';
+				$('#maprule').style.transform = `scaleX(${out(clamp01((tb - 580 * k) / 420))})`;
+				const pp = out(clamp01((tb - 640 * k) / 380));
+				$('#mappick').style.opacity = pp; $('#mappick').style.transform = `translateY(${14 * (1 - pp)}px)`;
+				$('#c-splash').style.transform = `scale(${1 + s.mapZoom * (1 - clamp01(tb / M.base.end))})`;
+				const bp = clamp01((tb - 900 * k) / Math.max(300, exitB - 900 * k));
+				$('#mapblock').style.transform = `scale(${1 + 0.035 * KBM.EASE.smooth(bp)})`;
+			}
+			// Boucles CSS (étoiles) figées au même instant en export/aperçu
+			if (EXPORT || PREVIEW) for (const a of document.getAnimations()) { a.pause(); a.currentTime = t; }
+		}
+
+		const loadImages = (urls) => Promise.all(urls.filter(Boolean).map((u) => new Promise((res) => { const i = new Image(); i.onload = i.onerror = () => (i.decode ? i.decode().catch(() => {}).then(res) : res()); i.src = u; })));
+
+		// ---- Lecture temps réel ----
+		let raf = 0, t0 = 0, tNow = 0, playing = false, onTick = null;
+		function loop(now) {
+			tNow = now - t0;
+			apply(Math.min(tNow, M.duration));
+			if (onTick) onTick();
+			if (tNow >= M.duration) { playing = false; apply(M.duration); if (onTick) onTick(); return; }
+			raf = requestAnimationFrame(loop);
+		}
+		function playFrom(t = 0) { cancelAnimationFrame(raf); playing = true; t0 = performance.now() - t; raf = requestAnimationFrame(loop); }
+		function pause() { cancelAnimationFrame(raf); playing = false; }
+		function play(mapName, settings) { setup(mapName, settings); playFrom(0); }
+		window.playStinger = (map, settings) => play(map || null, settings); // debug
+
+		const ready = () => NodeCG.waitForReplicants(KB.rep.valorantData, KB.rep.match, KB.rep.teams, trRep);
+
+		// ---- Mode export : prepare(map, settings?) puis seek(ms) image par image ----
+		window.stingerExport = {
+			timing: null,
+			async prepare(mapName, settings) {
+				await ready();
+				const st = settings || trRep.value;
+				if (mapName && !KB.map(mapName)) throw new Error(`Map inconnue : ${mapName}`);
+				const info = setup(mapName || null, st);
+				await loadImages([KB.img.kbs, '../shared/img/poster-art.png', info.splash]);
+				await document.fonts.ready;
+				pause();
+				apply(0);
+				const { panelsAt, slashesAt, base, ...rest } = M;
+				this.timing = { ...rest, hold: M.hold, settings: undefined };
+				return this.timing;
+			},
+			seek(ms) { apply(ms); return true; },
+		};
+
+		// ---- Mode aperçu (panneau) : piloté par postMessage, n'écoute PAS le replicant transition ----
+		if (PREVIEW) {
+			let previewMap = null, previewSettings = null;
+			const post = () => parent.postMessage({ type: 'kb-stinger-state', t: Math.round(Math.min(tNow, M.duration)), duration: M.duration, playing,
+				coveredFrom: M.coveredFrom, coveredTo: M.coveredTo, cut: M.cut, covered: M.covered }, '*');
+			onTick = post;
+			window.addEventListener('message', async (e) => {
+				const d = e.data;
+				if (!d || d.type !== 'kb-stinger') return;
+				await ready();
+				if (d.cmd === 'load') {
+					previewMap = d.map || null; previewSettings = d.settings || null;
+					const info = setup(previewMap, previewSettings);
+					loadImages([info.splash]);
+					tNow = 0; apply(0); post();
+					if (d.autoplay) playFrom(0);
+				} else if (d.cmd === 'play') { playFrom(tNow >= M.duration ? 0 : tNow); }
+				else if (d.cmd === 'pause') { pause(); post(); }
+				else if (d.cmd === 'seek') { pause(); tNow = Math.max(0, Math.min(M.duration, +d.t || 0)); apply(tNow); post(); }
+			});
+			ready().then(() => parent.postMessage({ type: 'kb-stinger-ready' }, '*'));
+		}
+
+		// ---- Mode normal : déclenchement par le replicant transition (valeur au chargement ignorée) ----
+		let lastAt = null;
+		if (!EXPORT && !PREVIEW) ready().then(() => NodeCG.waitForReplicants(KB.rep.transition)).then(() => {
+			const preload = () => KBM.preload(((KB.rep.match.value && KB.rep.match.value.maps) || []).map((x) => KB.map(x.map) && KB.map(x.map).splash));
+			preload();
+			KB.rep.match.on('change', preload);
+			const onChange = (v) => {
+				const at = v && v.at;
+				if (lastAt === null) { lastAt = at || 0; return; }
+				if (!at || at === lastAt) return;
+				lastAt = at;
+				play(v.map || null, trRep.value);
+			};
+			onChange(KB.rep.transition.value);
+			KB.rep.transition.on('change', onChange);
+		});
+	</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+	<meta charset="utf-8">
+	<title>KB SERIES — Le stream commence bientôt</title>
+	<link rel="stylesheet" href="../shared/theme.css">
+	<link rel="stylesheet" href="../shared/scenes.css">
+	<style>
+		/* ---------- Bloc titre (façon affiche) ---------- */
+		.center { position: absolute; left: 0; right: 0; display: flex; justify-content: center; align-items: center; }
+		#tournoi { top: 440px; gap: 40px; padding: 0 330px; }
+		#tournoi h2 { margin: 0; font: 700 64px/1 var(--kb-ui); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; text-shadow: 0 4px 20px rgba(0, 0, 0, .7); }
+		#tournoi h2 b { text-transform: none; color: var(--kb-blue-hi); margin-left: .35em; text-shadow: 0 0 20px var(--kb-blue-glow); }
+
+		#dates { top: 522px; gap: 34px; color: var(--kb-blue-hi); }
+		#dates svg { filter: drop-shadow(0 0 10px var(--kb-blue-glow)); }
+		#dates .d { font: 800 76px/1 var(--kb-ui); color: #fff; letter-spacing: .01em; white-space: nowrap; text-shadow: 0 4px 20px rgba(0, 0, 0, .7); }
+		#dates .d small { font-size: .62em; margin: 0 .25em; }
+
+		#place { top: 612px; gap: 26px; padding: 0 420px; }
+		#place span { font: 700 30px var(--kb-ui); letter-spacing: .14em; color: var(--kb-blue-hi); text-transform: uppercase; white-space: nowrap; max-width: 900px; overflow: hidden; text-overflow: ellipsis; }
+		#place .sc-wing { height: 3px; }
+
+		#neon { top: 668px; height: 108px; }
+		#neon h1 { margin: 0; font-size: 86px; line-height: 1; padding-left: .35em; white-space: nowrap; }
+		.kb-in #neon h1 { animation: neon-flicker 2.4s linear 1.1s both, sc-neon 11s linear 6s infinite; }
+		@keyframes neon-flicker {
+			0% { opacity: 0; } 8% { opacity: .9; } 10% { opacity: .1; } 14% { opacity: 1; } 18% { opacity: .3; } 24% { opacity: 1; }
+			60% { opacity: 1; } 62% { opacity: .55; } 64% { opacity: 1; } 100% { opacity: 1; }
+		}
+
+		/* ---------- Bas : partenaires | bloc arrondi (compte à rebours + prochain match) | logo ---------- */
+		#bottom { position: absolute; left: 64px; right: 64px; top: 792px; height: 220px; display: grid; grid-template-columns: 300px 1fr 300px; gap: 28px; align-items: center; }
+		#partners { justify-content: center; flex-direction: column; gap: 14px; }
+		#partners .sc-partner-sep { width: 160px; height: 1px; align-self: center; background: linear-gradient(90deg, transparent, var(--kb-gold-dim), transparent); }
+		#kbs { height: 214px; }
+		#bottom .sc-shine-wrap { justify-self: center; }
+		.sc-digits.long { font-size: 112px; }
+
+		#box::after { content: ''; position: absolute; inset: 0; border-radius: 36px; pointer-events: none; box-shadow: 0 0 46px rgba(78, 170, 255, .45), inset 0 0 30px rgba(78, 170, 255, .18); opacity: .2; animation: sc-breathe 4.5s ease-in-out infinite alternate; }
+		#box { overflow: visible; height: 206px; display: flex; align-items: stretch; padding: 0 34px; background: linear-gradient(180deg, rgba(10, 15, 46, .78), rgba(4, 6, 26, .9)); }
+		#cd { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+		#cd .kb-label { color: var(--kb-blue-hi); letter-spacing: .28em; font-size: 17px; margin-bottom: 6px; white-space: nowrap; }
+		#cdText { max-width: 100%; }
+		#cd.none .sc-digits { font-size: 46px; letter-spacing: .04em; text-transform: uppercase; white-space: normal; text-align: center; line-height: 1.2; }
+		#sep { flex: 0 0 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+		#sep i { width: 3px; flex: 1; background: var(--kb-gold); margin: 26px 0 8px; }
+		#sep i:last-child { margin: 8px 0 26px; }
+		#sep svg { flex: 0 0 auto; }
+
+		#next { flex: 1.15 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+		#next .head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; white-space: nowrap; }
+		#next .head .kb-kicker { font-size: 16px; }
+		#next .head .kb-pill { font-size: 13px; padding: 3px 14px; letter-spacing: .22em; border-radius: 6px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+		.vs-row { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: center; width: 100%; }
+		.side { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+		.side .nm { width: 100%; height: 56px; display: flex; align-items: center; justify-content: center; text-align: center; font: 400 26px/1.15 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; overflow: hidden; }
+		.side .sc-logo { width: 78px; height: 78px; }
+		.vs { font: 400 40px var(--kb-display); color: var(--kb-gold); text-align: center; }
+		#next.hidden, #sep.hidden { display: none; }
+	</style>
+</head>
+<body>
+	<div class="sc-stage" id="stage">
+		<div class="kb-bg"><div class="kb-bg__art" style="opacity:.35"></div><div class="kb-bg__grid"></div></div>
+		<div class="sc-glow"></div>
+		<div class="sc-art"></div>
+		<div class="kb-bg__stars"></div>
+		<div class="sc-art-shade"></div>
+
+		<div class="kb-marquee sc-marquee" id="marquee"></div>
+		<div class="kb-frame sc-frame"></div>
+
+		<div class="center" id="tournoi">
+			<span class="sc-wing" style="--i:4"></span>
+			<h2 class="sc-wipe" style="--i:3" id="sub">Tournoi <b>5v5</b></h2>
+			<span class="sc-wing sc-wing--r" style="--i:4"></span>
+		</div>
+		<div class="center kb-anim kb-anim--pop" id="dates" style="--i:5">
+			<span id="cal"></span>
+			<span class="d" id="datesText"></span>
+		</div>
+		<div class="center" id="place">
+			<span class="sc-wing" style="--i:6"></span>
+			<span class="kb-anim" style="--i:6" id="placeText"></span>
+			<span class="sc-wing sc-wing--r" style="--i:6"></span>
+		</div>
+		<div class="center" id="neon"><h1 class="kb-neon" id="neonText"></h1></div>
+
+		<div id="bottom">
+			<div class="sc-partners kb-anim kb-anim--left" id="partners" style="--i:10"></div>
+			<div class="kb-panel kb-panel--round kb-anim" id="box" style="--i:9">
+				<div id="cd">
+					<div class="kb-label" id="cdLabel"></div>
+					<div class="sc-digits" id="cdText"></div>
+				</div>
+				<div id="sep"><i></i>
+					<svg width="34" height="58" viewBox="0 0 34 58"><path d="M5 4l24 25L5 54" stroke="var(--kb-gold)" stroke-width="5" fill="none" stroke-linejoin="round"/></svg>
+				<i></i></div>
+				<div id="next"></div>
+			</div>
+			<img class="sc-kbs kb-anim kb-anim--pop" id="kbs" style="--i:11" alt="KB SERIES">
+		</div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/scenes.js"></script>
+	<script>
+		const S = KBScenes, $ = KB.$;
+		const stage = $('#stage');
+		$('#cal').innerHTML = S.calendarSVG(70);
+		$('#kbs').src = KB.img.kbs;
+		$('#partners').innerHTML = S.partnersHTML();
+		S.ambient(stage, { after: $('.sc-art-shade') });
+		S.shineLogo($('#kbs'));
+
+		function teamSide(team) {
+			return `<div class="side"><div class="sc-logo">${KB.teamLogo(team, 78)}</div><div class="nm" data-fit="16">${KB.esc(S.teamName(team))}</div></div>`;
+		}
+
+		function render() {
+			const t = S.tournament(), tx = S.texts();
+			S.marquee($('#marquee'), tx.marquee);
+			const sub = String(t.subtitle || 'Tournoi Valorant 5v5').replace(/valorant\s*/i, '');
+			$('#sub').innerHTML = KB.esc(sub).replace(/(\d+\s*v\s*\d+)/i, '<b>$1</b>');
+			$('#datesText').innerHTML = KB.esc(t.dates || '').replace(/\s*(&amp;|et)\s*/i, ' <small>ET</small> ');
+			$('#dates').style.visibility = t.dates ? '' : 'hidden';
+			$('#placeText').textContent = t.location || '';
+			S.setText($('#neonText'), tx.starting.title || '');
+
+			const nm = tx.starting.showNextMatch ? S.nextMatch() : null;
+			$('#next').classList.toggle('hidden', !nm);
+			$('#sep').classList.toggle('hidden', !nm);
+			if (nm) {
+				const head = `<div class="head"><span class="kb-kicker">Prochain match</span>${nm.stage ? `<span class="kb-pill">${KB.esc(nm.stage)}${nm.format ? ' · ' + KB.esc(nm.format) : ''}</span>` : ''}</div>`;
+				$('#next').innerHTML = head + `<div class="vs-row">${teamSide(nm.left)}<div class="vs">VS</div>${teamSide(nm.right)}</div>`;
+				if (S.changed('next', [nm.left && nm.left.id, nm.right && nm.right.id, nm.stage, nm.format, nm.left && nm.left.name, nm.right && nm.right.name])) KB.$$('#next .side, #next .head').forEach(S.bump);
+			}
+			S.fitAll(stage);
+			cd.refresh();
+		}
+
+		const cd = S.countdown((st) => {
+			const box = $('#cd'), txt = $('#cdText');
+			box.classList.toggle('none', st.state === 'none');
+			txt.classList.toggle('is-zero', st.state === 'zero');
+			txt.classList.toggle('is-urgent', st.state === 'running' && st.ms <= 60000);
+			txt.classList.toggle('long', st.state === 'running' && st.text.length > 5);
+			if (st.state === 'running') { $('#cdLabel').textContent = st.label || 'Le stream commence dans'; txt.textContent = st.text; }
+			else if (st.state === 'zero') { $('#cdLabel').textContent = S.tournament().name || 'KB SERIES'; txt.textContent = st.text; }
+			else { $('#cdLabel').textContent = S.tournament().name || 'KB SERIES'; txt.textContent = S.texts().starting.fallback || ''; }
+		});
+
+		KB.watch(['tournament', 'teams', 'match', 'schedule', 'countdown', S.rep], render);
+		S.enter(stage);
+		document.fonts.ready.then(() => S.fitAll(stage));
+	</script>
+</body>
+</html>
