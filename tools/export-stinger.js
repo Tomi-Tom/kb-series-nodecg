@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright-core');
+const { findChrome } = require('./chrome');
 let sharp = null; try { sharp = require('sharp'); } catch (e) { /* optionnel : force le canal alpha sur toutes les images */ }
 
 const args = process.argv.slice(2);
@@ -19,7 +20,7 @@ const slug = map ? '-' + map.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '';
 const out = path.resolve(root, opt('out', `exports/stinger${slug}`));
 
 (async () => {
-	const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+	const browser = await chromium.launch({ executablePath: findChrome(), headless: true });
 	try {
 		const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 		const errors = [];

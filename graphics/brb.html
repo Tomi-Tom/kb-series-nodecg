@@ -2,7 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
-	<title>KB SERIES — Pause</title>
+	<title>KB SERIES · Pause</title>
+	<!--
+		Scène plein écran « Pause » : titre, compte à rebours de reprise, série en cours et bandeau d'infos en rotation.
+		Replicants lus : tournament, teams, match, schedule, countdown, valorantData, scenesTexts, scenesRotation.
+		Pilotée par la régie (scène de fond de stream.html) et le panneau Écrans (dashboard/scenes.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/scenes.css">
 	<style>
@@ -14,7 +19,6 @@
 		#brand img { height: 118px; }
 		#brand .nm { font: 400 46px/1 var(--kb-display); letter-spacing: .04em; }
 		#brand .kb-label { margin-top: 6px; color: var(--kb-gold); font-size: 15px; letter-spacing: .3em; }
-		#stagePill { position: absolute; right: 72px; top: 92px; }
 
 		/* ---------- Colonne gauche ---------- */
 		#left { position: absolute; left: 120px; top: 270px; width: 820px; height: 540px; display: flex; flex-direction: column; justify-content: center; }
@@ -58,7 +62,7 @@
 		.mp .st { justify-self: end; font: 700 13px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
 		.mp .st.done { color: var(--kb-muted); border: 1px solid var(--kb-line); }
 		.mp .st.live { background: var(--kb-red); color: #fff; }
-		.mp .st.next { color: #1a1430; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); }
+		.mp .st.next { color: var(--kb-ink); background: linear-gradient(180deg, #d8c287, var(--kb-gold)); }
 		.mp .st.up { color: var(--kb-muted); }
 		.mp.is-live { box-shadow: inset 4px 0 0 var(--kb-red); }
 		.mp.is-live::after { content: ''; position: absolute; inset: 0; pointer-events: none; animation: sc-pulse-inset 2s ease-in-out infinite; }
@@ -69,7 +73,7 @@
 		#rot { position: absolute; left: 100px; right: 100px; bottom: 74px; height: 128px; display: flex; align-items: stretch; }
 		#rot .tag { flex: 0 0 250px; display: flex; flex-direction: column; justify-content: center; padding-left: 34px; background: linear-gradient(90deg, var(--kb-indigo), rgba(43, 47, 181, .4)); clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); }
 		#rot .tag .kb-label { color: var(--kb-blue-hi); font-size: 13px; }
-		#rot .tag b { font: 400 36px/1.1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; }
+		#rot .tag b { display: inline-block; white-space: nowrap; max-width: 168px; overflow: hidden; font: 400 36px/1.1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; }
 		#rot .body { position: relative; flex: 1; margin-left: -30px; padding-left: 60px; background: linear-gradient(90deg, rgba(10, 15, 46, .85), rgba(10, 15, 46, .45)); border-top: 1px solid var(--kb-gold-dim); border-bottom: 1px solid var(--kb-gold-dim); overflow: hidden; }
 		#rot .slide { position: absolute; inset: 0 40px 0 60px; display: flex; align-items: center; gap: 46px; opacity: 0; transform: translateY(24px); transition: opacity .7s var(--kb-ease-out), transform .7s var(--kb-ease-out); }
 		#rot .slide.on { opacity: 1; transform: none; }
@@ -89,7 +93,6 @@
 		.txt { min-width: 0; max-width: 100%; }
 		.txt .info-big { overflow: hidden; text-overflow: ellipsis; }
 		#rot.hidden { display: none; }
-		#rot .tag b { display: inline-block; white-space: nowrap; max-width: 168px; overflow: hidden; }
 		#rot .slide.on > * { animation: kb-from-right .7s var(--kb-ease-out) both; }
 		#rot .slide.on > *:nth-child(2) { animation-delay: .08s; } #rot .slide.on > *:nth-child(3) { animation-delay: .16s; }
 		#rot .slide.on > *:nth-child(4) { animation-delay: .24s; } #rot .slide.on > *:nth-child(5) { animation-delay: .32s; }
@@ -120,7 +123,6 @@
 			<img class="sc-kbs" id="kbs" alt="">
 			<div><div class="nm" id="tname"></div><div class="kb-label" id="tedition"></div></div>
 		</div>
-		<div id="stagePill" class="kb-anim" style="--i:1"></div>
 
 		<div id="left">
 			<div class="kb-kicker kb-anim" id="kicker" style="--i:2"></div>
@@ -142,9 +144,11 @@
 	</div>
 
 	<script src="../shared/kb.js"></script>
+	<script src="../shared/defaults.js"></script>
 	<script src="../shared/scenes.js"></script>
 	<script>
 		const S = KBScenes, $ = KB.$, esc = KB.esc;
+		const TOURNAMENT = KBDefaults.tournament(), TEXTS = S.DEFAULT_TEXTS.brb; // textes de secours si un champ est vidé
 		const stage = $('#stage');
 		$('#kbs').src = KB.img.kbs;
 		S.ambient(stage, { after: $('#echo') });
@@ -176,18 +180,18 @@
 				return `<div class="mp ${cls}" style="${maps.length > 3 ? 'height:54px' : ''}"><div class="img" style="${info && info.listView ? `background-image:url('${esc(info.listView)}')` : ''}"></div>
 					<span class="no">MAP ${i + 1}</span><span><span class="name">${esc(mp.map || 'À définir')}</span>${pick ? `<span class="pick">${pick}</span>` : ''}</span>${sc || '<span></span>'}${st}</div>`;
 			}).join('');
-			return `<div class="hd"><span class="kb-kicker">Série en cours</span><span class="kb-label">${esc(m.stage || '')}${m.format ? ' · ' + esc(KB.formatLabel(m.format)) : ''}</span></div>
+			return `<div class="hd"><span class="kb-kicker">Série en cours</span><span class="kb-label">${esc(KB.joinDot(m.stage, KB.formatLabel(m.format)))}</span></div>
 				<div class="teams">${tm(s.left)}<div class="score"><span class="${L > R ? 'lead' : ''}">${L}</span><span class="dash">–</span><span class="${R > L ? 'lead' : ''}">${R}</span></div>${tm(s.right)}</div>
 				<div class="maps">${rows || '<div class="kb-label" style="text-align:center">Maps à venir</div>'}</div>`;
 		}
 
 		function render() {
 			const t = S.tournament(), tx = S.texts().brb, m = KB.rep.match.value;
-			$('#tname').textContent = t.name || 'KB SERIES';
+			$('#tname').textContent = t.name || TOURNAMENT.name;
 			$('#tedition').textContent = t.edition || '';
 			S.setText($('#kicker'), tx.kicker || '');
-			S.setText($('#titleText'), tx.title || 'Pause');
-			$('#echo').textContent = tx.title || 'Pause';
+			S.setText($('#titleText'), tx.title || TEXTS.title);
+			$('#echo').textContent = tx.title || TEXTS.title;
 			S.setText($('#message'), tx.message || '');
 			$('#message').style.display = tx.message ? '' : 'none';
 			cdVisible = !!tx.showCountdown;
@@ -196,7 +200,6 @@
 			$('#series').classList.toggle('hidden', !hasMatch);
 			$('#left').classList.toggle('solo', !hasMatch);
 			stage.classList.toggle('solo', !hasMatch);
-			$('#stagePill').innerHTML = '';
 			if (hasMatch) {
 				$('#series').innerHTML = seriesHTML(m);
 				// Changement de score de série / de map → pop lumineux
@@ -210,7 +213,7 @@
 				const lv = KB.$('#series .mp.is-live'); if (lv) lv.insertAdjacentHTML('beforeend', '<i class="sc-ls"></i>');
 			}
 			S.fitAll(stage);
-			S.fit($('#title'), 80, true);
+			KB.fit($('#title'), { min: 80 });
 			buildSlides();
 			cd.refresh();
 		}
@@ -220,7 +223,7 @@
 			const txt = $('#cdText');
 			txt.classList.toggle('is-zero', st.state === 'zero');
 			txt.classList.toggle('is-urgent', st.state === 'running' && st.ms <= 60000);
-			$('#cdLabel').textContent = st.state === 'zero' ? '' : (S.texts().brb.countdownLabel || 'Reprise dans');
+			$('#cdLabel').textContent = st.state === 'zero' ? '' : (S.texts().brb.countdownLabel || TEXTS.countdownLabel);
 			$('#cdLabel').style.display = st.state === 'zero' ? 'none' : '';
 			txt.textContent = st.text;
 		});
@@ -240,7 +243,7 @@
 				return up.map((r) => {
 					const a = KB.team(r.teamA), b = KB.team(r.teamB);
 					const vs = (a || b) ? `${teamShort(a)}<i>vs</i>${teamShort(b)}` : 'À déterminer';
-					return `<div class="up-item"><span class="time">${esc(r.time || '')}</span><div><div class="lbl">${esc(r.label || '')}${r.status === 'live' ? ' · <span style="color:var(--kb-red)">En cours</span>' : ''}</div><div class="vs">${vs}</div></div></div>`;
+					return `<div class="up-item"><span class="time">${esc(r.time || '')}</span><div><div class="lbl">${KB.joinDot(esc(r.label), r.status === 'live' && '<span style="color:var(--kb-red)">En cours</span>')}</div><div class="vs">${vs}</div></div></div>`;
 				}).join('<i class="up-sep"></i>');
 			}
 			if (it.type === 'nextMatch') {
@@ -259,10 +262,10 @@
 					return `<span class="chip ${x.status === 'live' ? 'live' : ''}">${esc(x.map || '?')} <b>${a}–${b}</b></span>`;
 				}).join('');
 				return `<div class="nm-row"><div class="t r"><span class="n">${esc(S.teamName(sd.left))}</span>${KB.teamLogo(sd.left, 62)}</div><span class="big-score"><span class="${L > R ? 'lead' : ''}">${L}</span><i>–</i><span class="${R > L ? 'lead' : ''}">${R}</span></span><div class="t">${KB.teamLogo(sd.right, 62)}<span class="n">${esc(S.teamName(sd.right))}</span></div>
-					<div class="meta"><span class="lbl">${esc(m.stage || '')} · ${esc(KB.formatLabel(m.format))}</span><div class="chips">${maps}</div></div></div>`;
+					<div class="meta"><span class="lbl">${esc(KB.joinDot(m.stage, KB.formatLabel(m.format)))}</span><div class="chips">${maps}</div></div></div>`;
 			}
 			if (it.type === 'tournament') {
-				return `<div class="txt"><div class="info-big">${esc(t.subtitle || 'Tournoi Valorant 5v5')} · <b>${esc(t.dates || '')}</b></div><div class="info-sm">${esc(t.location || '')}${t.hashtag ? ' · ' + esc(t.hashtag) : ''}</div></div>`;
+				return `<div class="txt"><div class="info-big">${KB.joinDot(esc(t.subtitle || TOURNAMENT.subtitle), t.dates && `<b>${esc(t.dates)}</b>`)}</div><div class="info-sm">${esc(KB.joinDot(t.location, t.hashtag))}</div></div>`;
 			}
 			return null;
 		}
@@ -289,7 +292,7 @@
 			idsKey = newIds; slides = list;
 			KB.$$('.slide', body).forEach((el) => el.remove());
 			slides.forEach((sl, i) => { body.insertAdjacentHTML('beforeend', `<div class="slide" data-i="${i}"></div>`); const el = body.lastElementChild; el.innerHTML = sl.html; el.dataset.html = sl.html; });
-			KB.$$('.info-big', body).forEach((el) => S.fit(el, 28, true));
+			KB.$$('.info-big', body).forEach((el) => KB.fit(el, { min: 28 }));
 			clearTimeout(timer);
 			if (!slides.length) return;
 			const keep = slides.findIndex((x) => x.id === curId);
@@ -301,9 +304,9 @@
 			cur = i;
 			const els = KB.$$('#rotBody .slide');
 			els.forEach((el, j) => { const was = el.classList.contains('on'); el.classList.toggle('on', j === i); el.classList.toggle('off', j !== i && was); });
-			$('#rotKick').textContent = slides[i].kick; $('#rotTitle').textContent = slides[i].title; S.fit($('#rotTitle'), 18, true);
+			$('#rotKick').textContent = slides[i].kick; $('#rotTitle').textContent = slides[i].title; KB.fit($('#rotTitle'), { min: 18 });
 			if (changed) S.bump($('#rotTitle'));
-			const p = $('#prog'); p.style.setProperty('--dur', slides[i].dur + 'ms'); p.classList.remove('run'); void p.offsetWidth; p.classList.add('run');
+			const p = $('#prog'); p.style.setProperty('--dur', slides[i].dur + 'ms'); KB.restart(p, 'run');
 			clearTimeout(timer);
 			timer = setTimeout(() => show((cur + 1) % slides.length), slides[i].dur);
 		}

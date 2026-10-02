@@ -1,11 +1,17 @@
 // Popup de l'extension : état de la file d'import + derniers résultats + lien vers la régie
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Élément DOM avec du texte (jamais de HTML construit à partir des données reçues)
+const el = (tag, text, className) => {
+	const e = document.createElement(tag);
+	if (text != null) e.textContent = String(text);
+	if (className) e.className = className;
+	return e;
+};
 const DEFAULT_ORIGIN = 'http://localhost:9090';
 
-$('ver').textContent = 'Version ' + chrome.runtime.getManifest().version + ' · import en 1 clic depuis le panneau Joueurs';
+$('ver').textContent = 'Version ' + chrome.runtime.getManifest().version + ' · import en 1 clic depuis le panneau Équipes & Joueurs';
 
-let origin = DEFAULT_ORIGIN;
+let regieOrigin = DEFAULT_ORIGIN;
 
 async function render() {
 	const { state } = await chrome.storage.session.get('state').catch(() => ({}));
@@ -14,28 +20,33 @@ async function render() {
 	$('queue').textContent = s.running
 		? `Import en cours : ${s.running}${s.queued ? ` (+${s.queued} en attente)` : ''}`
 		: 'Aucun import en cours';
-	$('log').innerHTML = (s.log || []).length
-		? s.log.map((l) => `<li><b>${esc(l.riotId)}</b> <span class="${l.ok ? 'ok' : 'err'}">${l.ok ? '✔' : '✖'}</span>
-			<small>${esc(l.ok ? 'Importé' : l.message)} · ${new Date(l.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></li>`).join('')
-		: '<li class="empty">Aucun import pour l\'instant.</li>';
+	const items = (s.log || []).map((l) => {
+		const time = new Date(l.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+		const li = el('li');
+		li.append(el('b', l.riotId ?? ''), ' ', el('span', l.ok ? '✔' : '✖', l.ok ? 'ok' : 'err'), ' ',
+			el('small', `${(l.ok ? 'Importé' : l.message) ?? ''} · ${time}`));
+		return li;
+	});
+	$('log').replaceChildren(...(items.length ? items : [el('li', 'Aucun import pour l\'instant.', 'empty')]));
 }
 
 async function checkNodecg() {
 	const { lastOrigin } = await chrome.storage.local.get('lastOrigin').catch(() => ({}));
-	origin = lastOrigin || DEFAULT_ORIGIN;
+	regieOrigin = lastOrigin || DEFAULT_ORIGIN;
+	const host = regieOrigin.replace(/^https?:\/\//, '');
 	try {
-		const r = await fetch(origin + '/valorant-tournament/tracker-status', { cache: 'no-store' });
+		const r = await fetch(regieOrigin + '/valorant-tournament/tracker-status', { cache: 'no-store' });
 		const j = await r.json();
 		if (!j.ok) throw new Error();
 		$('ncgDot').className = 'dot on';
-		$('ncg').textContent = 'Régie NodeCG joignable · ' + origin.replace(/^https?:\/\//, '');
+		$('ncg').textContent = 'Régie NodeCG joignable · ' + host;
 	} catch {
 		$('ncgDot').className = 'dot err';
-		$('ncg').textContent = 'Régie injoignable (' + origin.replace(/^https?:\/\//, '') + ') : NodeCG est lancé ?';
+		$('ncg').textContent = 'Régie injoignable (' + host + ') : NodeCG est lancé ?';
 	}
 }
 
-$('open').onclick = () => chrome.tabs.create({ url: origin + '/dashboard/' });
+$('open').onclick = () => chrome.tabs.create({ url: regieOrigin + '/dashboard/' });
 chrome.storage.onChanged.addListener((changes, area) => { if (area === 'session' && changes.state) render(); });
 render();
 checkNodecg();

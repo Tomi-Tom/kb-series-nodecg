@@ -1,11 +1,5 @@
 /* Partie "maps" : animations communes (map-intro, map-series, map-result). À inclure après theme.css. */
 
-/* Scène plein écran : fondu global + entrées .kb-anim ; .kb-settled = plus de rejeu des entrées lors des mises à jour */
-.kbm-scene { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
-.kbm-scene.kb-in { opacity: 1; }
-.kbm-scene.kb-out { opacity: 0; transition-duration: .4s; }
-.kb-settled .kb-anim { opacity: 1; animation: none; }
-
 /* Entrée en volet diagonal (cartes, panneaux) */
 .kb-in .kbm-wipe { animation: kbm-wipe .8s var(--kb-ease-inout) backwards; animation-delay: calc(var(--d, .2s) + var(--i, 0) * 90ms); opacity: 1; }
 @keyframes kbm-wipe { from { clip-path: polygon(0 0, 0 0, -20% 100%, -20% 100%); } to { clip-path: polygon(0 0, 120% 0, 100% 100%, -20% 100%); } }
@@ -13,8 +7,12 @@
 
 /* Ligne dorée/bleue avec reflet qui balaie en boucle */
 .kbm-sweep { position: relative; overflow: hidden; }
-.kbm-sweep::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 22%; left: -30%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); filter: blur(1px); animation: kbm-sweep 5.5s ease-in-out infinite; animation-delay: var(--sd, 1.6s); }
-@keyframes kbm-sweep { 0% { left: -30%; } 45%, 100% { left: 115%; } }
+/* Translations en % de la largeur du reflet (22 % du bloc) : de -30 % à +115 % du bloc */
+.kbm-sweep::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 22%; left: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); filter: blur(1px); transform: translateX(-136.36%); animation: kbm-sweep-x 5.5s ease-in-out infinite; animation-delay: var(--sd, 1.6s); }
+@keyframes kbm-sweep-x { 0% { transform: translateX(-136.36%); } 45%, 100% { transform: translateX(522.73%); } }
+/* Même balayage pour un reflet de largeur quelconque (pseudo-élément en left: 0 d'un bloc en overflow hidden) :
+   --sw = largeur du reflet en % du bloc, sans unité ; de -30 % à +115 % du bloc. Ex. width: 40%; --sw: 40 */
+@keyframes kbm-sweep-w { 0% { transform: translateX(calc(-3000% / var(--sw))); } 45%, 100% { transform: translateX(calc(11500% / var(--sw))); } }
 
 /* Reflet sur un logo / une image (masqué par sa forme : à poser sur un wrapper) */
 .kbm-glint { position: relative; }

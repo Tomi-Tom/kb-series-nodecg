@@ -2,7 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 <meta charset="utf-8">
-<title>Écran 50/50</title>
+<title>KB SERIES · Écran 50/50</title>
+<!--
+	Scène plein écran « 50/50 » : fond percé de deux trous pour les caméras (LIVE.dualFrames), labels et bandeau du match.
+	Replicants lus : liveDualCam (défauts : LIVE.defaults.liveDualCam), match, teams, playerData, playerProfiles, valorantData.
+	Choisie dans la régie (scène de fond de stream.html) ; labels réglés dans le panneau Live (dashboard/live.html).
+-->
 <link rel="stylesheet" href="../shared/theme.css">
 <style>
 	/* Fond plein écran percé de deux trous transparents (LIVE.dualFrames) via clip-path evenodd. */
@@ -39,7 +44,8 @@
 	.label.l::before { left: 0; } .label.r::before { right: 0; }
 	@keyframes bar-breathe { 50% { filter: brightness(1.4); box-shadow: 0 0 24px var(--c, var(--kb-gold)); } }
 	.label::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .08), transparent); transform: skewX(-20deg); animation: sweep 7s ease-in-out 2s infinite; }
-	@keyframes sweep { 0% { left: -40%; } 30%, 100% { left: 130%; } }
+	/* Le reflet (30 % du label) part de -40 % et finit à 130 % du label : 170 / 30 = 566,667 % de sa propre largeur */
+	@keyframes sweep { 0% { transform: translateX(0) skewX(-20deg); } 30%, 100% { transform: translateX(566.667%) skewX(-20deg); } }
 	.label .meta { display: flex; flex-direction: column; min-width: 0; }
 	.label .k { font: 700 13px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-gold); white-space: nowrap; }
 	.label .t { font: 400 46px/1.2 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -120,7 +126,7 @@
 	function labelHTML(lab, side) {
 		if (!lab || lab.mode === 'none') return '';
 		const anim = side === 'l' ? 'kb-anim--left' : 'kb-anim--right';
-		let c = 'var(--kb-gold)', k = '', t = '', s = '', lead = '';
+		let c = 'var(--kb-gold)', k, t, s, lead = '';
 		if (lab.mode === 'team') {
 			const team = matchTeam(lab.team);
 			if (!team && !lab.text) return '';
@@ -133,7 +139,7 @@
 			const p = KB.player(lab.riotId);
 			if (!p && !lab.text) return '';
 			c = (p && p.team && p.team.color) || c;
-			k = p ? [p.team && p.team.tag, KB.roleLabel(p.role)].filter(Boolean).join(' · ') || 'Joueur' : 'Joueur';
+			k = (p && KB.joinDot(p.team && p.team.tag, KB.roleLabel(p.role))) || 'Joueur';
 			t = lab.text || (p ? p.name : '');
 			s = lab.sub || (p && p.realName) || '';
 			lead = p && p.photo ? `<img class="ph" src="${KB.esc(p.photo)}" alt="">` : (p && p.team ? KB.teamLogo(p.team, 60) : '');
@@ -163,7 +169,7 @@
 		const sides = dualSides(v, m);
 		const sc = KB.seriesScore(m);
 		const idx = +m.currentMap || 0, cur = (m.maps || [])[idx];
-		const kicker = v.infoText || [m.stage, KB.formatLabel(m.format)].filter(Boolean).join(' · ');
+		const kicker = v.infoText || KB.joinDot(m.stage, KB.formatLabel(m.format));
 		if (!A && !B) return `<div class="info kb-panel kb-anim kb-anim--pop" style="--i:7"><div class="k">${KB.esc(kicker || 'KB SERIES')}</div><div class="row"><span class="tag">À suivre</span></div></div>`;
 		const L = sides.left, R = sides.right, sl = sc[sides.leftKey], sr = sc[sides.rightKey];
 		const tag = (t) => KB.esc(t ? t.tag || t.name : '?');
@@ -177,13 +183,11 @@
 		</div>`;
 	}
 
-	const fit = (el, start, min) => { if (!el) return; let s = start; while (el.scrollWidth > el.clientWidth + 1 && s > min) { s -= 2; el.style.fontSize = s + 'px'; } };
-
 	function render() {
 		const v = { ...LIVE.defaults.liveDualCam, ...(rep.value || {}) };
 		for (const [side, lab] of [['l', v.left], ['r', v.right]]) {
 			const html = labelHTML(lab, side);
-			if (html !== keys[side]) { keys[side] = html; const el = KB.$('#label-' + side); el.innerHTML = html; fit(el.querySelector('.t'), 46, 28); }
+			if (html !== keys[side]) { keys[side] = html; const el = KB.$('#label-' + side); el.innerHTML = html; KB.fit(el.querySelector('.t'), { max: 46, min: 28 }); }
 		}
 		const c = centerHTML(v);
 		const m = KB.rep.match.value || {};

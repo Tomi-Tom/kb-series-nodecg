@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<title>Données</title>
+	<!--
+		Données : exporter / importer, sauvegardes automatiques, données de test, réinitialisation, réglages techniques.
+		Écrit : kbAutoReload. Routes : GET data-export[?files=0], POST data-import.
+		Messages : data:backups, data:restore, data:testData, data:clearAll, valorantData:refresh (extension/data-*.js, test-data.js, state.js).
+	-->
+	<link rel="stylesheet" href="../shared/dashboard.css">
+	<style>
+		.bk-list { max-height: 260px; overflow-y: auto; margin-top: 6px; }
+		.bk { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+		.bk:last-child { border-bottom: 0; }
+		.bk .when { flex: 1; min-width: 0; }
+		.bk .when small { display: block; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.bk button { flex: 0 0 auto; padding: 5px 10px; font-size: 12px; }
+		.cats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+		.cats .chk { font-size: 12px; }
+		/* Libellé lu par les lecteurs d'écran seulement */
+	</style>
+</head>
+<body>
+	<h3>1. Sauvegarder / transférer</h3>
+	<div class="card">
+		<div class="hint">Un seul fichier contient tout : équipes, joueurs, match, planning, bracket, textes, réglages, et les logos / photos envoyés.
+			Pour passer du PC local au serveur en ligne : exporte ici, puis importe le fichier sur l'autre régie.</div>
+		<div class="row">
+			<button type="button" class="primary" id="exportAll">⬇ Exporter mes données</button>
+			<button type="button" id="exportLight" title="Plus léger : sans les logos et photos (dossier assets/ à copier à la main)">⬇ Exporter sans les logos / photos</button>
+		</div>
+		<div class="row">
+			<label class="vh" for="importFile">Fichier d'export à importer</label>
+			<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+			<button type="button" id="importBtn">⬆ Importer un fichier…</button>
+		</div>
+		<div class="hint">L'import <b>remplace</b> les données actuelles par celles du fichier. Une sauvegarde de l'état actuel est faite juste avant
+			(voir « Sauvegardes automatiques »). Après l'import, tous les overlays sont masqués et la scène repasse sur « Jeu ».</div>
+		<div class="msg box" id="xferMsg"></div>
+	</div>
+
+	<h3>2. Sauvegardes automatiques</h3>
+	<div class="card">
+		<div class="hint">Une sauvegarde des données (sans les logos ni les photos) est faite avant chaque import, restauration, chargement de données de test ou réinitialisation
+			(les 50 plus récentes sont gardées). « Restaurer » demande 2 clics ; l'état actuel est sauvegardé avant, puis les overlays sont masqués.</div>
+		<div class="bk-list" id="backups"><p class="empty">Chargement…</p></div>
+		<div class="row"><button type="button" class="shrink" id="refreshBackups">↻ Actualiser la liste</button></div>
+		<div class="msg box" id="bkMsg"></div>
+	</div>
+
+	<h3>3. Tester</h3>
+	<div class="card">
+		<div class="hint">Remplit un match en cours avec scores, veto, agents joués, planning, bracket et compte à rebours, pour répéter avant le direct.
+			Ne crée aucun joueur et garde tes équipes (des équipes adverses vides sont ajoutées si besoin). Sauvegarde faite avant.</div>
+		<div class="row"><button type="button" class="primary" id="testData">Charger des données de test</button></div>
+		<div class="msg box" id="testMsg"></div>
+	</div>
+
+	<h3>4. Réinitialiser</h3>
+	<div class="card">
+		<div class="hint">Efface les catégories cochées (sauvegarde faite avant, restaurable ci-dessus). Les logos et photos envoyés ne sont pas supprimés.</div>
+		<div class="cats" id="cats">
+			<label class="chk"><input type="checkbox" value="teams"> Équipes</label>
+			<label class="chk"><input type="checkbox" value="players"> Joueurs (fiches, stats)</label>
+			<label class="chk"><input type="checkbox" value="match"> Match en cours et veto</label>
+			<label class="chk"><input type="checkbox" value="schedule"> Planning et compte à rebours</label>
+			<label class="chk"><input type="checkbox" value="bracket"> Bracket</label>
+			<label class="chk"><input type="checkbox" value="texts"> Textes (écrans, ticker, casters, lower thirds)</label>
+			<label class="chk"><input type="checkbox" value="overlays"> Overlays (tout masquer, réglages d'affichage)</label>
+		</div>
+		<div class="row"><button type="button" class="danger" id="clearAll" disabled>Réinitialiser la sélection</button></div>
+		<div class="msg box" id="clearMsg"></div>
+	</div>
+
+	<h3>5. Réglages</h3>
+	<div class="card">
+		<label class="chk"><input type="checkbox" id="autoReload"> Recharger automatiquement les overlays quand leur code change</label>
+		<div class="hint">Utile pendant la préparation. <b>À couper pendant le direct</b> : une modification de fichier rechargerait tout ce qui est à l'antenne.</div>
+		<div class="row"><button type="button" id="vdRefresh">↻ Mettre à jour les maps et agents Valorant</button></div>
+		<div class="hint" id="vdInfo"></div>
+		<div class="msg box" id="vdMsg"></div>
+	</div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script>
+		const $ = (id) => document.getElementById(id);
+		const errText = (e) => String((e && e.message) || e);
+		const autoReload = nodecg.Replicant('kbAutoReload', { defaultValue: true });
+
+		// ---------- 1. Export (fetch : en cas d'erreur le serveur répond un message JSON, pas un fichier) ----------
+		async function download(url, msgId) {
+			KBD.flash(msgId, 'Préparation du fichier…', 'info', 0);
+			try {
+				const r = await fetch(url, { credentials: 'include' });
+				if (!r.ok) {
+					const j = await r.json().catch(() => null);
+					throw new Error((j && j.error) || `Erreur ${r.status}`);
+				}
+				const blob = await r.blob();
+				const name = (/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '') || [])[1] || 'kb-series-donnees.json';
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(blob);
+				a.download = name;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+				KBD.flash(msgId, `✔ Fichier téléchargé : ${name}`, 'ok', 0);
+			} catch (e) { KBD.flash(msgId, 'Export impossible : ' + errText(e), 'err', 0); }
+		}
+		$('exportAll').onclick = () => download('/valorant-tournament/data-export', 'xferMsg');
+		$('exportLight').onclick = () => download('/valorant-tournament/data-export?files=0', 'xferMsg');
+
+		// ---------- 1. Import ----------
+		$('importBtn').onclick = () => $('importFile').click();
+		$('importFile').onchange = async (e) => {
+			const file = e.target.files[0];
+			if (!file) return;
+			KBD.flash('xferMsg', `Import de « ${file.name} » en cours…`, 'info', 0);
+			try {
+				const r = await fetch('/valorant-tournament/data-import', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: await file.text(), credentials: 'include' });
+				const j = await r.json().catch(() => ({ ok: false, error: `Erreur ${r.status}` }));
+				if (!j.ok) throw new Error(j.error);
+				KBD.flash('xferMsg', `✔ Importé : ${j.replicants} réglages / données, ${j.files} fichiers (logos, photos)${j.ignored ? `, ${j.ignored} fichier(s) non reconnu(s) ignoré(s)` : ''}. Overlays masqués. Sauvegarde d'avant : ${j.backup}`, 'ok', 0);
+				loadBackups();
+			} catch (err) { KBD.flash('xferMsg', 'Import impossible : ' + errText(err), 'err', 0); }
+			e.target.value = '';
+		};
+
+		// ---------- 2. Sauvegardes ----------
+		// Nom de fichier : <raison>-<horodatage ISO avec « - » à la place de « : » et « . »>.json
+		const REASONS = {
+			'avant-effacement': 'Avant une réinitialisation', 'avant-restauration': 'Avant une restauration', 'avant-import': 'Avant un import',
+			'avant-donnees-test': 'Avant les données de test', 'avant-reset-bracket': 'Avant la remise à zéro du bracket',
+		};
+		function describe(file) {
+			const m = /^(.*)-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.json$/.exec(file);
+			if (!m) return { when: file, why: '', at: 0 };
+			const d = new Date(`${m[2]}T${m[3]}:${m[4]}:${m[5]}.${m[6]}Z`);
+			const when = d.toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+			return { when, why: REASONS[m[1]] || m[1], at: d.getTime() };
+		}
+		function loadBackups() {
+			nodecg.sendMessage('data:backups').then((list) => {
+				// Tri sur l'horodatage du nom : la date du fichier change quand le dossier est copié
+				const sorted = list.map((f, i) => [f, describe(f).at, i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(([f]) => f);
+				$('backups').innerHTML = sorted.length ? sorted.map((f) => {
+					const d = describe(f);
+					return `<div class="bk"><span class="when">${KB.esc(d.when)}<small>${KB.esc(d.why)} · ${KB.esc(f)}</small></span><button type="button" data-file="${KB.esc(f)}">Restaurer</button></div>`;
+				}).join('') : '<p class="empty">Aucune sauvegarde pour l\'instant.</p>';
+			}).catch((e) => KBD.flash('bkMsg', 'Liste indisponible : ' + errText(e), 'err', 0));
+		}
+		$('backups').addEventListener('click', (e) => {
+			const b = e.target.closest('button[data-file]');
+			if (!b) return;
+			const file = b.dataset.file;
+			KBD.arm(b, () => {
+				nodecg.sendMessage('data:restore', { file })
+					.then((r) => { KBD.flash('bkMsg', `✔ Sauvegarde du ${describe(file).when} restaurée. Overlays masqués. État d'avant sauvegardé : ${r.backup}`, 'ok', 0); loadBackups(); })
+					.catch((err) => KBD.flash('bkMsg', 'Restauration impossible : ' + errText(err), 'err', 0));
+			}, { label: 'Confirmer : tout remplacer ?' });
+		});
+		$('refreshBackups').onclick = loadBackups;
+		loadBackups();
+
+		// ---------- 3. Données de test ----------
+		KBD.confirm('testData', () => {
+			nodecg.sendMessage('data:testData')
+				.then((r) => { KBD.flash('testMsg', `✔ Données de test chargées (sauvegarde d'avant : ${r.backup})`, 'ok', 0); loadBackups(); })
+				.catch((err) => KBD.flash('testMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : charger les données de test ?' });
+
+		// ---------- 4. Réinitialiser ----------
+		const checked = () => [...$('cats').querySelectorAll('input:checked')].map((i) => i.value);
+		$('cats').addEventListener('change', () => { $('clearAll').disabled = !checked().length; });
+		KBD.confirm('clearAll', () => {
+			const cats = checked();
+			if (!cats.length) return;
+			nodecg.sendMessage('data:clearAll', Object.fromEntries(cats.map((c) => [c, true])))
+				.then((r) => {
+					KBD.flash('clearMsg', `✔ Réinitialisé (sauvegarde d'avant : ${r.backup})`, 'ok', 0);
+					$('cats').querySelectorAll('input').forEach((i) => { i.checked = false; });
+					$('clearAll').disabled = true;
+					loadBackups();
+				})
+				.catch((err) => KBD.flash('clearMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : effacer la sélection ?' });
+
+		// ---------- 5. Réglages ----------
+		$('autoReload').onchange = (e) => { autoReload.value = e.target.checked; };
+		KB.watch([autoReload], () => { $('autoReload').checked = autoReload.value !== false; });
+
+		function renderValorantData() {
+			const v = KB.rep.valorantData.value || {};
+			const n = (o) => Object.keys(o || {}).length;
+			$('vdInfo').textContent = v.updatedAt
+				? `Dernière mise à jour : ${new Date(v.updatedAt).toLocaleString('fr-FR')} · ${n(v.maps)} maps · ${n(v.agents)} agents`
+				: 'Jamais mises à jour (valorant-api.com injoignable au démarrage ?)';
+		}
+		$('vdRefresh').onclick = () => {
+			$('vdRefresh').disabled = true;
+			KBD.flash('vdMsg', 'Téléchargement depuis valorant-api.com…', 'info', 0);
+			nodecg.sendMessage('valorantData:refresh')
+				.then((r) => KBD.flash('vdMsg', `✔ ${r.maps} maps et ${r.agents} agents à jour`, 'ok', 0))
+				.catch((err) => KBD.flash('vdMsg', 'Mise à jour impossible (cache conservé) : ' + errText(err), 'err', 0))
+				.finally(() => { $('vdRefresh').disabled = false; });
+		};
+		KB.watch(['valorantData'], renderValorantData);
+	</script>
+</body>
+</html>

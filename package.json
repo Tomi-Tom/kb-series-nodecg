@@ -2,11 +2,20 @@
   "name": "valorant-tournament",
   "version": "0.1.0",
   "private": true,
-  "description": "NodeCG bundle: overlays & dashboard pour stream de tournoi Valorant",
+  "description": "Bundle NodeCG : overlays et régie du tournoi Valorant KB SERIES",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node node_modules/nodecg/index.js",
     "dev": "node --watch-path=extension --watch-path=package.json node_modules/nodecg/index.js",
-    "postinstall": "node tools/patch-deps.js"
+    "postinstall": "node tools/patch-deps.js",
+    "lint": "eslint .",
+    "check": "node tools/check.js",
+    "verify": "npm run lint && npm run check",
+    "shot": "node tools/shot.js",
+    "export:stinger": "node tools/export-stinger.js"
   },
   "nodecg": {
     "compatibleRange": "^2.0.0",
@@ -55,7 +64,7 @@
       },
       {
         "name": "live",
-        "title": "Live · scorebug, lower third, casters",
+        "title": "Live · score de série, lower thirds, ticker, 50/50",
         "file": "live.html",
         "width": 4,
         "headerColor": "#2b2fb5"
@@ -93,7 +102,7 @@
       },
       {
         "name": "player-stats",
-        "title": "Stats Joueur (tracker.gg)",
+        "title": "Stats Joueur · fiche et duel",
         "file": "player-stats.html",
         "width": 4,
         "headerColor": "#2b2fb5",
@@ -114,6 +123,14 @@
         "width": 6,
         "headerColor": "#2b2fb5",
         "workspace": "2. Écrans & Tournoi"
+      },
+      {
+        "name": "donnees",
+        "title": "Données · sauvegarde, import, réglages",
+        "file": "donnees.html",
+        "width": 4,
+        "headerColor": "#2b2fb5",
+        "workspace": "3. Données"
       }
     ],
     "graphics": [
@@ -215,14 +232,18 @@
     ]
   },
   "dependencies": {
-    "nodecg": "^2.8.0"
+    "nodecg": "2.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "eslint-plugin-html": "8.2.1",
+    "globals": "17.13.0",
+    "playwright-core": "^1.63.0",
+    "sharp": "^0.35.5"
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true,
     "msgpackr-extract@3.0.4": true
-  },
-  "devDependencies": {
-    "playwright-core": "^1.63.0",
-    "sharp": "^0.35.5"
   }
 }

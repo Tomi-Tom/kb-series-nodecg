@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>NodeCG · Import tracker.gg</title>
+<style>
+body{margin:0;height:100vh;display:grid;place-items:center;background:#0f1923;color:#ece8e1;font:600 16px system-ui,sans-serif;text-align:center}
+b{color:#ff4655}.ok{color:#3ddc97}.err{color:#ff4655}
+</style>
+</head>
+<body>
+<div id="s">En attente des données de <b>tracker.gg</b>…</div>
+<script>
+// Petite fenêtre ouverte par le favori depuis une page tracker.gg : reçoit le JSON par postMessage puis le POST
+// à la régie en same-origin (évite le blocage « Local Network Access » de Chrome sur https -> localhost).
+// Seule la page tracker.gg qui a ouvert cette fenêtre est écoutée.
+const TRACKER = 'https://tracker.gg';
+const s = document.getElementById('s');
+const show = (text, cls) => {
+	const span = document.createElement('span');
+	span.className = cls;
+	span.textContent = text;
+	s.replaceChildren(span);
+};
+let done = false;
+const ping = setInterval(() => { if (window.opener) window.opener.postMessage('ncg-ready', TRACKER); }, 250);
+window.addEventListener('message', async (e) => {
+	if (e.origin !== TRACKER || e.source !== window.opener) return;
+	if (done || !e.data || e.data.type !== 'tracker-json') return;
+	done = true; clearInterval(ping);
+	s.textContent = 'Import en cours…';
+	try {
+		const r = await fetch('tracker-import?playlist=' + encodeURIComponent(e.data.playlist || 'competitive'), {
+			method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(e.data.data),
+		});
+		const j = await r.json();
+		if (!j.ok) throw new Error(j.error);
+		show('✔ ' + j.riotId + ' importé dans NodeCG', 'ok');
+		setTimeout(() => window.close(), 1500);
+	} catch (err) {
+		show('✖ ' + err.message, 'err');
+	}
+});
+setTimeout(() => { if (!done) show('Rien reçu. Lance le favori depuis une page de profil tracker.gg.', 'err'); }, 15000);
+</script>
+</body>
+</html>

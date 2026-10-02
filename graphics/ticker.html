@@ -2,7 +2,11 @@
 <html lang="fr" class="kb-graphic">
 <head>
 <meta charset="utf-8">
-<title>Ticker</title>
+<title>KB SERIES · Ticker</title>
+<!--
+	Bandeau défilant en bas de l'écran (messages + partenaires), par-dessus le jeu.
+	Replicant lu : liveTicker (défauts : LIVE.defaults.liveTicker, shared/live.js), piloté par le panneau Live (dashboard/live.html).
+-->
 <link rel="stylesheet" href="../shared/theme.css">
 <style>
 	/* Bandeau bas plein largeur, 44 px (y 1036 → 1080) */
@@ -11,7 +15,7 @@
 	#ticker.kb-out { transform: translateY(100%); transition: transform .3s var(--kb-ease-inout); }
 	#ticker::before { content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 2px; z-index: 3; background: linear-gradient(90deg, var(--kb-gold), var(--kb-gold-hi) 20%, var(--kb-blue) 50%, var(--kb-gold-hi) 80%, var(--kb-gold)); box-shadow: 0 0 10px rgba(245, 196, 69, .35); }
 
-	.brand { position: relative; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 0 44px 0 154px; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%); color: #1a1430; overflow: hidden; }
+	.brand { position: relative; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 0 44px 0 154px; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%); color: var(--kb-ink); overflow: hidden; }
 	.brand b { font: 400 24px/1 var(--kb-display); letter-spacing: .06em; position: relative; }
 	/* reflet qui balaye le bloc doré */
 	.brand::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-80px) skewX(-20deg); animation: brand-shine 7s ease-in-out 1s infinite; }
@@ -75,6 +79,7 @@
 		+ `<img class="face front" src="${KB.img.kbs}" alt=""><img class="face back" src="${KB.img.kbs}" alt=""><div class="gloss"></div><div class="gloss back"></div>`;
 	let key = '';
 	let anim = null;
+	let seq = 0; // jeton : seul le dernier build() lancé a le droit de finir
 
 	function items(v) {
 		const out = (v.messages || []).map((m) => String(m || '').trim()).filter(Boolean).map((m) => `<span class="item">${KB.esc(m)}</span>`);
@@ -87,26 +92,32 @@
 	}
 
 	async function build(v) {
+		const id = ++seq;
 		const html = items(v);
-		// On répète le contenu jusqu'à dépasser 2× la largeur visible, puis on boucle sur une moitié
+		// La largeur ne se mesure qu'une fois polices et logos chargés (sinon la boucle saute)
 		track.innerHTML = html;
-		await Promise.all([...track.querySelectorAll('img')].map((img) => img.complete ? 0 : new Promise((r) => { img.onload = img.onerror = r; })));
-		const one = track.scrollWidth || 1;
-		const reps = Math.max(1, Math.ceil(1920 / one));
+		void track.offsetWidth; // la mise en page lance le chargement des polices du nouveau texte
+		const imgs = [...track.querySelectorAll('img')].map((img) => img.complete ? 0 : new Promise((r) => { img.onload = img.onerror = r; }));
+		await Promise.all([document.fonts.ready, ...imgs]);
+		if (id !== seq) return;
+		// On répète le contenu jusqu'à couvrir l'écran, on double le tout, puis on boucle sur une moitié
+		const reps = Math.max(1, Math.ceil(1920 / (track.getBoundingClientRect().width || 1)));
 		const half = html.repeat(reps);
 		track.innerHTML = half + half;
-		const dist = one * reps;
+		const dist = track.getBoundingClientRect().width / 2; // largeur exacte (sous-pixel) d'une moitié
 		const speed = Math.max(20, +v.speed || 90);
 		if (anim) anim.cancel();
 		anim = track.animate([{ transform: 'translateX(0)' }, { transform: `translateX(-${dist}px)` }], { duration: (dist / speed) * 1000, iterations: Infinity });
+		if (!pres.visible) anim.pause();
 	}
 
 	function render() {
 		const v = rep.value || {};
 		const k = JSON.stringify([v.messages, v.partners, v.speed]);
 		if (k !== key) { key = k; build(v); }
-		if (v.visible && !pres.visible) pres.show();
-		else if (!v.visible && pres.visible) pres.hide();
+		if (v.visible && !pres.visible) { pres.show(); if (anim) anim.play(); }
+		// Masqué : défilement en pause, comme les boucles CSS sous .kb-idle
+		else if (!v.visible && pres.visible) pres.hide().then(() => { if (!pres.visible && anim) anim.pause(); });
 	}
 
 	KB.watch([rep], render);

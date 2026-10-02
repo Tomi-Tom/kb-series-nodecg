@@ -2,7 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
-	<title>KB SERIES — Planning</title>
+	<title>KB SERIES · Planning</title>
+	<!--
+		Scène plein écran « Planning » : programme du jour (une ligne par match, statut et score).
+		Replicants lus : tournament, teams, schedule, scenesTexts.
+		Pilotée par la régie (scène de fond de stream.html) ; planning et textes saisis dans le panneau Écrans (dashboard/scenes.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/scenes.css">
 	<style>
@@ -88,7 +93,7 @@
 			const showScore = st !== 'upcoming';
 			const wa = st === 'done' && sa > sb, wb = st === 'done' && sb > sa;
 			const logo = Math.round(h * .62);
-			const side = (team, cls, lose) => `<div class="tm ${cls} ${lose ? 'lose' : ''}"><div class="sc-logo">${team ? KB.teamLogo(team, logo) : KB.teamLogo(null, logo)}</div><div class="nm ${team ? '' : 'tbd'}">${esc(S.teamName(team))}</div></div>`;
+			const side = (team, cls, lose) => `<div class="tm ${cls} ${lose ? 'lose' : ''}"><div class="sc-logo">${KB.teamLogo(team, logo)}</div><div class="nm ${team ? '' : 'tbd'}">${esc(S.teamName(team))}</div></div>`;
 			const mid = showScore
 				? `<span class="${wa ? 'w' : wb ? 'l' : ''}">${sa}</span><i>–</i><span class="${wb ? 'w' : wa ? 'l' : ''}">${sb}</span>`
 				: '<span class="vs">VS</span>';
@@ -106,7 +111,7 @@
 		function render() {
 			const tx = S.texts().schedule, t = S.tournament();
 			$('#kicker').textContent = [tx.kicker, t.name && t.edition ? `${t.name} · ${t.edition}` : t.name].filter(Boolean).join('  ·  ');
-			S.setText($('#titleText'), tx.title || 'Planning');
+			S.setText($('#titleText'), tx.title || S.DEFAULT_TEXTS.schedule.title);
 			S.setText($('#whenDates'), t.dates || '');
 			$('#whenPlace').textContent = t.location || '';
 			const rows = KB.rep.schedule.value || [];
@@ -124,14 +129,14 @@
 				if (S.changed('row' + i, [r.time, r.label, r.teamA, r.teamB, r.status, r.scoreA, r.scoreB]) && !firstRender) { el.insertAdjacentHTML('beforeend', '<i class="sc-rowflash"></i>'); KB.$$('.mid, .st', el).forEach(S.bump); }
 				if (r.status === 'live') el.insertAdjacentHTML('beforeend', '<i class="sc-ls"></i>');
 			});
-			KB.$$('.nm', list).forEach((el) => S.fit(el, 20, true));
+			KB.$$('.nm', list).forEach((el) => KB.fit(el, { min: 20 }));
 			$('#empty').style.display = n ? 'none' : 'block';
 			firstRender = false;
 		}
 
 		KB.watch(['tournament', 'teams', 'schedule', S.rep], render);
 		S.enter(stage);
-		document.fonts.ready.then(() => KB.$$('#list .nm').forEach((el) => S.fit(el, 20, true)));
+		document.fonts.ready.then(() => KB.$$('#list .nm').forEach((el) => KB.fit(el, { min: 20 })));
 	</script>
 </body>
 </html>

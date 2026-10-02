@@ -1,12 +1,33 @@
-// Logique serveur du bundle : chaque partie a son fichier
+// Point d'entrée du serveur du bundle : charge chaque partie (un fichier = une responsabilité).
+// Une partie qui plante au démarrage est journalisée sans empêcher les autres de tourner.
+// Les messages des panneaux passent par `listen` (lib/listen.js) : une erreur répond au panneau sans arrêter le serveur.
+const createListen = require('./lib/listen');
+const createBackup = require('./lib/backup');
+
 module.exports = function (nodecg) {
-	require('./state')(nodecg);     // replicants coeur (tournoi, équipes, match, veto, données Valorant...)
-	require('./tracker')(nodecg);   // import des stats tracker.gg
-	for (const part of ['player', 'maps', 'scenes', 'live', 'match', 'bracket', 'admin']) {
+	const listen = createListen(nodecg);
+	const backup = createBackup(nodecg);
+	let tracker = null;
+	const parts = [
+		['state', () => require('./state')(nodecg, listen)],             // replicants coeur + données Valorant
+		['tracker', () => { tracker = require('./tracker')(nodecg); }],   // profils tracker.gg (normalisation, stockage)
+		['tracker-routes', () => require('./tracker-routes')(nodecg, tracker)],
+		['player', () => require('./player')(nodecg)],
+		['maps', () => require('./maps')(nodecg, listen)],
+		['scenes', () => require('./scenes')(nodecg)],
+		['live', () => require('./live')(nodecg, listen)],
+		['match', () => require('./match')(nodecg)],
+		['bracket', () => require('./bracket')(nodecg, listen, backup)],
+		['data-admin', () => require('./data-admin')(nodecg, listen, backup)],
+		['test-data', () => require('./test-data')(nodecg, listen, backup)],
+		['data-transfer', () => require('./data-transfer')(nodecg, listen, backup)],
+		['dev-reload', () => require('./dev-reload')(nodecg)],
+	];
+	for (const [name, load] of parts) {
 		try {
-			require('./' + part)(nodecg);
+			load();
 		} catch (e) {
-			nodecg.log.error(`Extension "${part}" en erreur :`, e.stack || e.message);
+			nodecg.log.error(`Partie "${name}" du bundle en erreur (le reste fonctionne) :`, e.stack || e.message);
 		}
 	}
 	nodecg.log.info('Bundle Valorant Tournament chargé');

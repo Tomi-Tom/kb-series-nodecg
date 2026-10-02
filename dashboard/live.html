@@ -2,14 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<title>Live</title>
+<!--
+	Live : score de série, lower thirds (formulaire complet + presets), ticker, écran 50/50, casters.
+	Écrit : match.swap, liveLowerThird et liveLowerThirdPresets (via KBLT), liveTicker, liveDualCam, casters ; visibilités via KBO.
+	Message envoyé : live:series { team, delta }.
+-->
 <link rel="stylesheet" href="../shared/dashboard.css">
 <style>
-	.vis { display: flex; align-items: center; gap: 8px; }
-	.vis b { flex: 1; font-size: 13px; }
-	.vis button { flex: 0 0 auto; min-width: 84px; }
 	.teamrow { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; margin-top: 6px; }
 	.teamrow .t { display: flex; align-items: center; gap: 8px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-	.teamrow .sw { width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; }
+	.teamrow .t .hint { margin: 0; }
+	.teamrow .sw { width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; background: var(--c); }
 	.teamrow .n { font: 700 18px 'Segoe UI', sans-serif; min-width: 22px; text-align: center; }
 	.teamrow button { padding: 6px 10px; min-width: 40px; }
 	.presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -18,10 +22,8 @@
 	.caster button { padding: 6px 10px; }
 	code { font-size: 11.5px; color: var(--gold); }
 	.coords { font-size: 12px; margin-top: 6px; line-height: 1.6; }
+	.coords .hint { margin: 0; }
 	.small { font-size: 12px; color: var(--muted); margin-top: 4px; }
-	.side-title { font: 700 12px 'Segoe UI', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
-	.check { display: flex; gap: 6px; align-items: center; margin: 8px 0 0; color: var(--text); }
-	.hidden { display: none; }
 	.prow { display: flex; gap: 4px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
 	.prow:last-child { border-bottom: 0; }
 	.prow .pname { flex: 1; min-width: 0; }
@@ -35,29 +37,31 @@
 	<div class="card">
 		<div id="teams"></div>
 		<div class="small" id="seriesInfo"></div>
-		<div class="row"><button id="swap">⇄ Inverser les côtés</button></div>
+		<div class="row"><button type="button" id="swap">⇄ Inverser gauche / droite</button></div>
 		<div class="msg" id="sbMsg"></div>
 	</div>
 
 	<!-- ===== Lower thirds ===== -->
 	<h3>Lower thirds (gauche / droite)</h3>
 	<div id="ltCards"></div>
-	<div class="row"><button class="danger" id="ltHideAll">Masquer les deux</button></div>
+	<div class="row"><button type="button" class="danger" id="ltHideAll" title="Masque les lower thirds gauche et droite (le ticker et les autres overlays restent à l'antenne)">Masquer les 2 lower thirds</button></div>
 	<h3>Mes presets de lower third</h3>
 	<div class="card"><div id="presetList"></div><div class="hint">Les presets automatiques (casters, pause technique, prochain match) restent toujours disponibles en plus.</div></div>
 
 	<!-- ===== Ticker ===== -->
 	<h3>Ticker défilant (bas d'écran)</h3>
 	<div class="card">
-		<div class="vis"><span class="dot" id="tkDot"></span><b>Ticker</b>
-			<button class="show" id="tkShow">AFFICHER</button><button class="danger" id="tkHide">MASQUER</button></div>
-		<label>Messages (un par ligne)</label>
-		<textarea id="tkMsgs" rows="5"></textarea>
-		<div class="grid2">
-			<div><label>Vitesse (px/s)</label><input id="tkSpeed" type="number" min="20" max="400" step="10"></div>
-			<div><label>&nbsp;</label><label class="check"><input type="checkbox" id="tkPartners"> Partenaires CYCOM / EPITECH</label></div>
+		<div id="tkRow"></div>
+		<div id="tkForm">
+			<label for="tkMsgs">Messages (un par ligne)</label>
+			<textarea id="tkMsgs" rows="5"></textarea>
+			<div class="grid2">
+				<div><label for="tkSpeed">Vitesse (px/s)</label><input id="tkSpeed" type="number" min="20" max="400" step="10"></div>
+				<div><label>&nbsp;</label><label class="chk"><input type="checkbox" id="tkPartners"> Partenaires CYCOM / EPITECH</label></div>
+			</div>
 		</div>
-		<div class="row"><button class="primary" id="tkSave">Enregistrer les messages</button></div>
+		<div class="hint lt-dirty" id="tkState"></div>
+		<div class="row"><button type="button" class="primary" id="tkSave">Enregistrer le ticker</button></div>
 		<div class="msg" id="tkMsg"></div>
 	</div>
 
@@ -66,8 +70,8 @@
 	<div class="card">
 		<div class="coords" id="dcCoords"></div>
 		<div id="dcSides"></div>
-		<label class="check"><input type="checkbox" id="dcInfo"> Bandeau match en cours (centre bas)</label>
-		<label>Surtitre du bandeau (vide = phase · format)</label><input id="dcInfoText" placeholder="ex. Interview d'après-match">
+		<label class="chk"><input type="checkbox" id="dcInfo"> Bandeau match en cours (centre bas)</label>
+		<label for="dcInfoText">Surtitre du bandeau (vide = phase · format)</label><input id="dcInfoText" placeholder="ex. Interview d'après-match">
 		<div class="hint">Les changements s'appliquent en direct (le label concerné rejoue son entrée).</div>
 	</div>
 
@@ -75,214 +79,124 @@
 	<h3>Casters (presets des lower thirds)</h3>
 	<div class="card">
 		<div id="casters"></div>
-		<div class="row"><button id="addCaster">+ Ajouter un caster</button><button class="primary" id="saveCasters">Enregistrer</button></div>
+		<div class="hint lt-dirty" id="cState"></div>
+		<div class="row"><button type="button" id="addCaster">+ Ajouter un caster</button><button type="button" class="primary" id="saveCasters">Enregistrer</button></div>
 		<div class="msg" id="cMsg"></div>
 	</div>
 
 <script src="../shared/kb.js"></script>
 <script src="../shared/live.js"></script>
+<script src="../shared/dash.js"></script>
+<script src="../shared/overlays.js"></script>
+<script src="../shared/lt-form.js"></script>
 <script>
 	const D = LIVE.defaults;
-	const lt = nodecg.Replicant('liveLowerThird', { defaultValue: D.liveLowerThird });
 	const tk = nodecg.Replicant('liveTicker', { defaultValue: D.liveTicker });
 	const dc = nodecg.Replicant('liveDualCam', { defaultValue: D.liveDualCam });
+	const ltp = nodecg.Replicant('liveLowerThirdPresets', { defaultValue: D.liveLowerThirdPresets });
 	const $ = (id) => document.getElementById(id);
-	const flash = (el, text, cls = 'ok') => { el.textContent = text; el.className = 'msg ' + cls; clearTimeout(el._t); el._t = setTimeout(() => { el.textContent = ''; el.className = 'msg'; }, 3500); };
-	const patch = (rep, obj) => { rep.value = { ...(rep.value || {}), ...obj }; };
 	const SIDES = { left: 'Gauche', right: 'Droite' };
+	// Écrit seulement les champs qui changent : un changement fait au même moment ailleurs (visibilité…) est préservé
+	const patch = (rep, obj) => {
+		if (!rep.value || typeof rep.value !== 'object') { rep.value = { ...obj }; return; }
+		for (const [k, v] of Object.entries(obj)) if (JSON.stringify(rep.value[k]) !== JSON.stringify(v)) rep.value[k] = v;
+	};
 
 	// ---------- Score de série ----------
 	$('swap').onclick = () => { const m = KB.rep.match; if (m.value) m.value.swap = !m.value.swap; };
-	const series = (team, delta) => nodecg.sendMessage('live:series', { team, delta })
-		.then((r) => flash($('sbMsg'), `Série : ${r.A} – ${r.B}`))
-		.catch((e) => flash($('sbMsg'), String((e && e.message) || e), 'err'));
-
+	$('teams').addEventListener('click', (e) => {
+		const b = e.target.closest('button[data-t]');
+		if (!b) return;
+		nodecg.sendMessage('live:series', { team: b.dataset.t, delta: +b.dataset.d })
+			.then((r) => KBD.flash('sbMsg', `Série : ${r.A} – ${r.B}`, 'ok', 3500))
+			.catch((err) => KBD.flash('sbMsg', String((err && err.message) || err), 'err', 3500));
+	});
 	function renderMatch() {
 		const m = KB.rep.match.value || {};
 		const s = KB.seriesScore(m);
 		const sides = KB.sides(m);
 		const row = (team, key) => `<div class="teamrow">
-			<div class="t"><span class="sw" style="background:${KB.esc((team && team.color) || '#8e9ac8')}"></span>${KB.esc(team ? team.name : 'Équipe ' + key + ' non définie')} <span class="hint" style="margin:0">(${key})</span></div>
+			<div class="t"><span class="sw" style="--c:${KB.esc(KB.teamColor(team, key))}"></span>${KB.esc(team ? team.name : 'Équipe ' + key + ' non définie')} <span class="hint">(${key})</span></div>
 			<span class="n">${s[key]}</span>
-			<span><button data-t="${key}" data-d="-1">−1</button> <button class="primary" data-t="${key}" data-d="1">+1</button></span></div>`;
-		$('teams').innerHTML = `<label>Maps gagnées (ordre gauche → droite à l'écran)</label>` + row(sides.left, sides.leftKey) + row(sides.right, sides.rightKey);
-		$('teams').querySelectorAll('button').forEach((b) => (b.onclick = () => series(b.dataset.t, +b.dataset.d)));
+			<span><button type="button" data-t="${key}" data-d="-1">−1</button> <button type="button" class="primary" data-t="${key}" data-d="1">+1</button></span></div>`;
+		$('teams').innerHTML = `<div class="hint">Maps gagnées (ordre gauche → droite à l'écran)</div>` + row(sides.left, sides.leftKey) + row(sides.right, sides.rightKey);
 		const cur = (m.maps || [])[+m.currentMap || 0];
-		$('seriesInfo').textContent = `${m.stage || '—'} · ${KB.formatLabel(m.format)} · Map ${(+m.currentMap || 0) + 1}${cur && cur.map ? ' : ' + cur.map : ''}${m.swap ? ' · côtés inversés' : ''}`;
+		$('seriesInfo').textContent = `${m.stage || '—'} · ${KB.formatLabel(m.format)} · Map ${(+m.currentMap || 0) + 1}${cur && cur.map ? ' : ' + cur.map : ''}${m.swap ? ' · gauche / droite inversés' : ''}`;
 	}
 
-	// ---------- Lower thirds (2 slots) + presets ----------
-	const ltp = nodecg.Replicant('liveLowerThirdPresets', { defaultValue: D.liveLowerThirdPresets });
-	const styleOpts = Object.entries(LIVE.styles).map(([k, s]) => `<option value="${k}">${s.label}</option>`).join('');
-	$('ltCards').innerHTML = Object.entries(SIDES).map(([side, name]) => `
-		<div class="card" data-side="${side}">
-			<div class="vis"><span class="dot" data-f="dot"></span><b><span class="side-title">${name}</span> <span data-f="state" class="small"></span></b>
-				<button class="show" data-a="show" title="Applique les champs et affiche">AFFICHER</button><button class="danger" data-a="hide">MASQUER</button></div>
-			<label>Afficher un preset en 1 clic</label>
-			<div class="presets" data-f="presets"></div>
-			<label>Charger un preset dans les champs (sans l'afficher)</label>
-			<select data-f="load"></select>
-			<div class="grid2">
-				<div><label>Style</label><select data-f="style">${styleOpts}</select></div>
-				<div><label>Masquer après (s, 0 = manuel)</label><input data-f="duration" type="number" min="0" step="1" value="0"></div>
-			</div>
-			<label>Surtitre (vide = auto)</label><input data-f="kicker" placeholder="ex. CASTER, ANNONCE…">
-			<label>Titre</label><input data-f="title" placeholder="ex. Pause technique">
-			<label>Sous-titre</label><input data-f="subtitle" placeholder="ex. Reprise dans quelques instants">
-			<div class="hint" data-f="src"></div>
-			<div class="row"><button class="primary" data-a="update" title="Entrée dans un champ = Mettre à jour">Mettre à jour (sans masquer)</button></div>
-			<div class="row"><input data-f="pname" placeholder="Nom du preset"><button class="shrink" data-a="save">Enregistrer comme preset</button></div>
-			<div class="msg" data-f="msg"></div>
-		</div>`).join('');
-	const card = (side) => document.querySelector(`#ltCards [data-side="${side}"]`);
-	const field = (side, f) => card(side).querySelector(`[data-f="${f}"]`);
-	const ltVal = () => LIVE.normalizeLowerThird(lt.value);
-	const setSlot = (side, obj) => { const v = ltVal(); v[side] = { ...v[side], ...obj }; lt.value = v; };
+	// ---------- Lower thirds (2 slots) : formulaire partagé avec la Régie ----------
+	const ltForm = KBLT.mount('#ltCards');
+	$('ltHideAll').onclick = () => { KBO.hide('lower-third-left'); KBO.hide('lower-third-right'); };
+
+	// Liste éditable des presets personnalisés (rendu différé pendant un renommage)
 	const presets = () => (Array.isArray(ltp.value) ? ltp.value : []);
-	const allPresets = () => [...LIVE.autoPresets(KB), ...presets()];
-
-	// Source du formulaire : un preset caster reste lié au caster tant qu'on ne retouche pas le titre / sous-titre
-	const formSrc = { left: { source: 'custom', casterIndex: 0 }, right: { source: 'custom', casterIndex: 0 } };
-	const casterText = (i) => { const c = (KB.rep.casters.value || [])[i] || {}; return { title: c.name || 'Caster', subtitle: c.handle || '' }; };
-	const form = (side) => ({
-		style: field(side, 'style').value, kicker: field(side, 'kicker').value.trim(), title: field(side, 'title').value.trim(),
-		subtitle: field(side, 'subtitle').value.trim(), duration: Math.max(0, +field(side, 'duration').value || 0), ...formSrc[side],
-	});
-	const fill = (side, p) => {
-		const c = p.source === 'caster' ? { ...p, ...casterText(+p.casterIndex || 0) } : p;
-		field(side, 'style').value = c.style || 'standard'; field(side, 'kicker').value = c.kicker || '';
-		field(side, 'title').value = c.title || ''; field(side, 'subtitle').value = c.subtitle || ''; field(side, 'duration').value = c.duration || 0;
-		formSrc[side] = { source: p.source === 'caster' ? 'caster' : 'custom', casterIndex: +p.casterIndex || 0 };
-		markDirty(side);
-	};
-	// Comparaison formulaire / antenne (pour signaler les modifications non appliquées)
-	const view = (s) => { const t = s.source === 'caster' ? casterText(+s.casterIndex || 0) : s; return JSON.stringify([s.style, s.kicker || '', (t.title || '').trim(), (t.subtitle || '').trim(), +s.duration || 0]); };
-	const dirty = (side) => view(form(side)) !== view(ltVal()[side]);
-	function markDirty(side) {
-		const s = ltVal()[side], d = dirty(side);
-		field(side, 'state').innerHTML = (s.visible ? '— à l\'antenne' : '') + (d ? ' <span style="color:var(--gold)">· modifications non appliquées</span>' : '');
-		card(side).querySelector('[data-a="update"]').disabled = !d;
-	}
-	const applyForm = (side, show) => setSlot(side, { ...form(side), ...(show ? { visible: true } : {}) });
-	const applyPreset = (side, p) => { fill(side, p); setSlot(side, { ...LIVE.presetContent(p), visible: true }); };
-
-	for (const side of Object.keys(SIDES)) {
-		card(side).querySelector('[data-a="show"]').onclick = () => applyForm(side, true);
-		card(side).querySelector('[data-a="hide"]').onclick = () => setSlot(side, { visible: false });
-		card(side).querySelector('[data-a="update"]').onclick = () => applyForm(side, false);
-		for (const f of ['style', 'kicker', 'title', 'subtitle', 'duration']) {
-			const el = field(side, f);
-			el.addEventListener('input', () => { if (f === 'title' || f === 'subtitle') formSrc[side] = { source: 'custom', casterIndex: 0 }; markDirty(side); });
-			el.addEventListener('change', () => markDirty(side));
-			el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyForm(side, false); } });
-		}
-		field(side, 'load').onchange = () => { const p = allPresets().find((x) => x.id === field(side, 'load').value); if (p) fill(side, p); field(side, 'load').value = ''; };
-		card(side).querySelector('[data-a="save"]').onclick = () => {
-			const name = field(side, 'pname').value.trim() || field(side, 'title').value.trim();
-			if (!name) return flash(field(side, 'msg'), 'Donne un nom au preset', 'err');
-			const list = presets().map((p) => ({ ...p }));
-			const content = {};
-			const f = form(side);
-			for (const k of LIVE.presetFields) content[k] = f[k];
-			const ex = list.find((p) => p.name.toLowerCase() === name.toLowerCase());
-			if (ex) Object.assign(ex, content); else list.push({ id: LIVE.newId(), name, ...content });
-			ltp.value = list;
-			field(side, 'pname').value = '';
-			flash(field(side, 'msg'), ex ? `Preset « ${name} » mis à jour` : `Preset « ${name} » enregistré`);
-		};
-	}
-	$('ltHideAll').onclick = () => { const v = ltVal(); v.left.visible = false; v.right.visible = false; lt.value = v; };
-
-	function renderPresetUI() {
-		const auto = LIVE.autoPresets(KB), mine = presets();
-		const opt = (p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.name)}</option>`;
-		for (const side of Object.keys(SIDES)) {
-			field(side, 'load').innerHTML = `<option value="">— choisir —</option><optgroup label="Automatiques">${auto.map(opt).join('')}</optgroup>`
-				+ (mine.length ? `<optgroup label="Mes presets">${mine.map(opt).join('')}</optgroup>` : '');
-			const box = field(side, 'presets');
-			box.innerHTML = '';
-			[...auto, ...mine].forEach((p) => {
-				const b = document.createElement('button');
-				b.textContent = p.name; if (!p.auto) b.className = 'gold';
-				b.title = [p.title, p.subtitle].filter(Boolean).join(' — ');
-				b.onclick = () => applyPreset(side, p);
-				box.appendChild(b);
-			});
-		}
-		// Liste éditable des presets personnalisés
+	function renderPresetList() {
+		const mine = presets();
 		$('presetList').innerHTML = mine.length ? mine.map((p, i) => `<div class="prow" data-i="${i}">
 			<span class="pname"><b>${KB.esc(p.name)}</b><small>${KB.esc(LIVE.styles[p.style] ? LIVE.styles[p.style].label : p.style)} · ${KB.esc([p.title, p.subtitle].filter(Boolean).join(' — ') || (p.source === 'caster' ? 'caster ' + ((+p.casterIndex || 0) + 1) : ''))}</small></span>
-			<button data-p="left" title="Afficher à gauche">◀ G</button><button data-p="right" title="Afficher à droite">D ▶</button>
-			<button data-p="up" ${i ? '' : 'disabled'}>↑</button><button data-p="down" ${i < mine.length - 1 ? '' : 'disabled'}>↓</button>
-			<button data-p="ren">Renommer</button><button class="danger" data-p="del">✕</button></div>`).join('')
+			<button type="button" data-p="left" title="Afficher à gauche">◀ G</button><button type="button" data-p="right" title="Afficher à droite">D ▶</button>
+			<button type="button" data-p="up" title="Monter" ${i ? '' : 'disabled'}>↑</button><button type="button" data-p="down" title="Descendre" ${i < mine.length - 1 ? '' : 'disabled'}>↓</button>
+			<button type="button" data-p="ren">Renommer</button><button type="button" class="danger" data-p="del" title="Supprimer">✕</button></div>`).join('')
 			: '<p class="empty">Aucun preset perso : remplis un lower third puis « Enregistrer comme preset ».</p>';
-		$('presetList').querySelectorAll('.prow').forEach((row) => {
-			const i = +row.dataset.i;
-			row.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => {
-				const list = presets().map((p) => ({ ...p }));
-				const a = b.dataset.p;
-				if (a === 'left' || a === 'right') return applyPreset(a, list[i]);
-				if (a === 'up' || a === 'down') { const j = a === 'up' ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]]; ltp.value = list; return; }
-				if (a === 'del') {
-					if (b.dataset.sure) { list.splice(i, 1); ltp.value = list; return; }
-					b.dataset.sure = '1'; b.textContent = 'Supprimer ?'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = '✕'; } }, 3000); return;
-				}
-				if (a === 'ren') {
-					const span = row.querySelector('.pname');
-					span.innerHTML = `<input value="${KB.esc(list[i].name)}">`;
-					const inp = span.querySelector('input'); inp.focus(); inp.select();
-					let closed = false;
-					const done = () => { if (closed) return; closed = true; const n = inp.value.trim(); if (n && n !== list[i].name) { list[i].name = n; ltp.value = list; } else renderPresetUI(); };
-					inp.onkeydown = (e) => { if (e.key === 'Enter') done(); if (e.key === 'Escape') { closed = true; renderPresetUI(); } };
-					inp.onblur = done;
-				}
-			}));
-		});
 	}
-
-	let ltFilled = false;
-	function renderLT() {
-		const v = ltVal();
-		for (const side of Object.keys(SIDES)) {
-			const s = v[side];
-			field(side, 'dot').classList.toggle('on', !!s.visible);
-			if (!ltFilled) fill(side, s);
-			const c = s.source === 'caster' ? (KB.rep.casters.value || [])[s.casterIndex] : null;
-			field(side, 'src').textContent = s.source === 'caster' ? `À l'antenne : caster « ${c ? c.name : '?'} » (suit l'éditeur des casters)` : '';
-			markDirty(side);
+	const safePresetList = KBD.deferWhileEditing('presetList', renderPresetList);
+	$('presetList').addEventListener('click', (e) => {
+		const b = e.target.closest('button[data-p]');
+		if (!b) return;
+		const row = b.closest('.prow'), i = +row.dataset.i;
+		const list = presets().map((p) => ({ ...p }));
+		const a = b.dataset.p;
+		if (a === 'left' || a === 'right') return ltForm.applyPreset(a, list[i]);
+		if (a === 'up' || a === 'down') { const j = a === 'up' ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]]; ltp.value = list; return; }
+		if (a === 'del') return KBD.arm(b, () => { list.splice(i, 1); ltp.value = list; }, { label: 'Supprimer ?', ms: 3000 });
+		if (a === 'ren') {
+			const span = row.querySelector('.pname');
+			span.innerHTML = `<label class="vh" for="renName">Nouveau nom du preset</label><input id="renName" value="${KB.esc(list[i].name)}">`;
+			const inp = span.querySelector('input'); inp.focus(); inp.select();
+			let closed = false;
+			const done = () => { if (closed) return; closed = true; const n = inp.value.trim(); if (n && n !== list[i].name) { list[i].name = n; ltp.value = list; } else safePresetList(); };
+			// Entrée : on quitte le champ (qui valide) pour que la liste se remette à jour tout de suite
+			inp.onkeydown = (ev) => { if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { closed = true; inp.blur(); renderPresetList(); } };
+			inp.onblur = done;
 		}
-		ltFilled = true;
-		if (!(document.activeElement && document.activeElement.closest('#presetList'))) renderPresetUI();
-	}
+	});
 
-	// ---------- Ticker ----------
-	let tkFilled = false;
-	function renderTK() {
-		const v = tk.value || {};
-		$('tkDot').classList.toggle('on', !!v.visible);
-		if (!tkFilled) { $('tkMsgs').value = (v.messages || []).join('\n'); $('tkSpeed').value = v.speed || 90; $('tkPartners').checked = v.partners !== false; tkFilled = true; }
-	}
-	$('tkShow').onclick = () => patch(tk, { visible: true });
-	$('tkHide').onclick = () => patch(tk, { visible: false });
-	$('tkPartners').onchange = () => patch(tk, { partners: $('tkPartners').checked });
+	// ---------- Ticker : visibilité immédiate (KBO), messages / vitesse / partenaires à enregistrer ----------
+	KBO.bind('tkRow');
+	const tkLines = () => $('tkMsgs').value.split('\n').map((s) => s.trim()).filter(Boolean);
+	const tkSpeed = (v) => Math.min(400, Math.max(20, +v || D.liveTicker.speed));
+	const tkForm = KBD.bindDirty('tkForm', {
+		read: () => ({ messages: tkLines(), speed: tkSpeed($('tkSpeed').value), partners: $('tkPartners').checked }),
+		fill: (v) => { $('tkMsgs').value = v.messages.join('\n'); $('tkSpeed').value = v.speed; $('tkPartners').checked = v.partners; },
+		// Même nettoyage que read() : un message importé avec un espace final ne doit pas rester « non enregistré » pour toujours
+		live: () => { const v = tk.value; return v && { messages: (v.messages || []).map((s) => String(s ?? '').trim()).filter(Boolean), speed: tkSpeed(v.speed), partners: v.partners !== false }; },
+		onState: (dirty) => { $('tkSave').disabled = !dirty; $('tkState').textContent = dirty ? 'Modifications non enregistrées' : ''; },
+	});
 	$('tkSave').onclick = () => {
-		patch(tk, { messages: $('tkMsgs').value.split('\n').map((s) => s.trim()).filter(Boolean), speed: Math.min(400, Math.max(20, +$('tkSpeed').value || 90)), partners: $('tkPartners').checked });
-		flash($('tkMsg'), 'Ticker mis à jour');
+		const v = { messages: tkLines(), speed: tkSpeed($('tkSpeed').value), partners: $('tkPartners').checked };
+		patch(tk, v);
+		$('tkMsgs').value = v.messages.join('\n'); $('tkSpeed').value = v.speed;
+		KBD.flash('tkMsg', 'Ticker mis à jour', 'ok', 3500);
 	};
+	function renderTK() {
+		const html = KBO.row('ticker');
+		if ($('tkRow')._html !== html) { $('tkRow').innerHTML = html; $('tkRow')._html = html; }
+		tkForm.sync();
+	}
 
 	// ---------- Écran 50/50 ----------
-	$('dcCoords').innerHTML = '<span class="hint" style="margin:0">Trous transparents (OBS, canevas 1920×1080) :</span><br>' + LIVE.dualFrames.map((f, i) =>
+	$('dcCoords').innerHTML = '<span class="hint">Trous transparents (OBS, canevas 1920×1080) :</span><br>' + LIVE.dualFrames.map((f, i) =>
 		`${i ? 'Droite' : 'Gauche'} : <code>x ${f.x} · y ${f.y} · ${f.w}×${f.h}</code>`).join('<br>');
 	$('dcSides').innerHTML = Object.entries(SIDES).map(([side, name]) => `
 		<div class="card" data-dc="${side}">
 			<span class="side-title">Moitié ${name.toLowerCase()}</span>
 			<div class="grid2">
-				<div><label>Label</label><select data-k="mode"><option value="none">Aucun</option><option value="text">Texte libre</option><option value="team">Équipe</option><option value="player">Joueur</option></select></div>
-				<div data-show="team"><label>Équipe</label><select data-k="team"></select></div>
-				<div data-show="player"><label>Joueur</label><select data-k="riotId"></select></div>
+				<div><label for="dc-${side}-mode">Label</label><select id="dc-${side}-mode" data-k="mode"><option value="none">Aucun</option><option value="text">Texte libre</option><option value="team">Équipe</option><option value="player">Joueur</option></select></div>
+				<div data-show="team"><label for="dc-${side}-team">Équipe</label><select id="dc-${side}-team" data-k="team"></select></div>
+				<div data-show="player"><label for="dc-${side}-riotId">Joueur</label><select id="dc-${side}-riotId" data-k="riotId"></select></div>
 			</div>
-			<label data-show="text team player">Titre <span class="hint">(vide = nom auto)</span></label><input data-k="text" data-show="text team player" placeholder="ex. Interview">
-			<label data-show="text team player">Sous-titre <span class="hint">(optionnel)</span></label><input data-k="sub" data-show="text team player" placeholder="ex. Capitaine">
+			<label for="dc-${side}-text" data-show="text team player">Titre <span class="hint">(vide = nom auto)</span></label><input id="dc-${side}-text" data-k="text" data-show="text team player" placeholder="ex. Interview">
+			<label for="dc-${side}-sub" data-show="text team player">Sous-titre <span class="hint">(optionnel)</span></label><input id="dc-${side}-sub" data-k="sub" data-show="text team player" placeholder="ex. Capitaine">
 		</div>`).join('');
 	const dcEl = (side, k) => document.querySelector(`[data-dc="${side}"] [data-k="${k}"]`);
 	const dcVal = () => ({ ...D.liveDualCam, ...(dc.value || {}) });
@@ -293,14 +207,15 @@
 	for (const side of Object.keys(SIDES)) {
 		for (const k of ['mode', 'team', 'riotId', 'text', 'sub']) {
 			const el = dcEl(side, k);
-			el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'change', () => {
+			el.addEventListener('change', () => {
 				const v = dcVal();
-				v[side] = { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}), [k]: el.value };
-				dc.value = v;
+				patch(dc, { [side]: { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}), [k]: el.value } });
 				dcModeVis(side);
 			});
 		}
 	}
+	// Un menu n'est pas réécrit tant qu'il a le focus (KBD.fillSelect) : rattrapage à la sortie
+	$('dcSides').addEventListener('focusout', () => setTimeout(renderDC, 0));
 	$('dcInfo').onchange = () => patch(dc, { info: $('dcInfo').checked });
 	$('dcInfoText').onchange = () => patch(dc, { infoText: $('dcInfoText').value.trim() });
 
@@ -310,51 +225,61 @@
 		const m = KB.rep.match.value || {};
 		const tA = KB.team(m.teamA), tB = KB.team(m.teamB);
 		const teamOpts = `<option value="A">Équipe A du match${tA ? ' (' + KB.esc(tA.name) + ')' : ''}</option><option value="B">Équipe B du match${tB ? ' (' + KB.esc(tB.name) + ')' : ''}</option>`
-			+ teams.map((t) => `<option value="${KB.esc(t.id)}">${KB.esc(t.name)}</option>`).join('');
+			+ KBD.teamOptions(null, { empty: null, label: (t) => t.name });
 		const players = teams.flatMap((t) => KB.roster(t).filter(Boolean).map((p) => ({ id: p.riotId, label: `${p.name} (${t.tag || t.name})` })));
 		for (const side of Object.keys(SIDES)) {
 			const lab = { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}) };
-			const focused = document.activeElement && document.activeElement.closest(`[data-dc="${side}"]`);
-			dcEl(side, 'team').innerHTML = teamOpts;
 			const pl = [...players];
 			if (lab.riotId && !pl.some((p) => KB.key(p.id) === KB.key(lab.riotId))) pl.unshift({ id: lab.riotId, label: lab.riotId });
-			dcEl(side, 'riotId').innerHTML = (pl.length ? '<option value="">— choisir —</option>' : '<option value="">Aucun joueur enregistré</option>') + pl.map((p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.label)}</option>`).join('');
-			dcEl(side, 'mode').value = lab.mode;
-			dcEl(side, 'team').value = lab.team || (side === 'left' ? 'A' : 'B');
-			dcEl(side, 'riotId').value = lab.riotId || '';
-			if (!focused) { dcEl(side, 'text').value = lab.text || ''; dcEl(side, 'sub').value = lab.sub || ''; }
+			if (document.activeElement !== dcEl(side, 'mode')) dcEl(side, 'mode').value = lab.mode;
+			KBD.fillSelect(dcEl(side, 'team'), teamOpts, lab.team || (side === 'left' ? 'A' : 'B'));
+			KBD.fillSelect(dcEl(side, 'riotId'), (pl.length ? '<option value="">— choisir —</option>' : '<option value="">Aucun joueur enregistré</option>')
+				+ pl.map((p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.label)}</option>`).join(''), lab.riotId || '');
+			for (const k of ['text', 'sub']) if (document.activeElement !== dcEl(side, k)) dcEl(side, k).value = lab[k] || '';
 			dcModeVis(side);
 		}
 		$('dcInfo').checked = !!v.info;
 		if (document.activeElement !== $('dcInfoText')) $('dcInfoText').value = v.infoText || '';
 	}
 
-	// ---------- Casters ----------
-	let draft = null;
-	function drawCasters() {
-		$('casters').innerHTML = draft.map((c, i) => `<div class="caster">
-			<input data-i="${i}" data-f="name" value="${KB.esc(c.name)}" placeholder="Nom">
-			<input data-i="${i}" data-f="handle" value="${KB.esc(c.handle)}" placeholder="@handle">
-			<button class="danger" data-del="${i}" title="Supprimer">✕</button></div>`).join('') || '<p class="empty">Aucun caster</p>';
-		$('casters').querySelectorAll('input').forEach((el) => (el.oninput = () => { draft[el.dataset.i][el.dataset.f] = el.value; }));
-		$('casters').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { draft.splice(+b.dataset.del, 1); drawCasters(); }));
+	// ---------- Casters : brouillon gardé jusqu'à « Enregistrer » ----------
+	const casterRows = () => [...$('casters').querySelectorAll('.caster')].map((r) => ({
+		name: r.querySelector('[data-f="name"]').value.trim(), handle: r.querySelector('[data-f="handle"]').value.trim(),
+	}));
+	function drawCasters(list) {
+		$('casters').innerHTML = list.map((c, i) => `<div class="caster">
+			<label class="vh" for="caster-${i}-name">Nom du caster ${i + 1}</label><input id="caster-${i}-name" data-f="name" value="${KB.esc(c.name)}" placeholder="Nom">
+			<label class="vh" for="caster-${i}-handle">Pseudo du caster ${i + 1}</label><input id="caster-${i}-handle" data-f="handle" value="${KB.esc(c.handle)}" placeholder="@handle">
+			<button type="button" class="danger" data-del="${i}" title="Retirer de la liste (appliqué à l'enregistrement)">✕</button></div>`).join('') || '<p class="empty">Aucun caster</p>';
 	}
-	function renderCasters() {
-		if (draft && document.activeElement && document.activeElement.closest('#casters')) return; // ne pas écraser une saisie
-		draft = (KB.rep.casters.value || []).map((c) => ({ name: c.name || '', handle: c.handle || '' }));
-		drawCasters();
-	}
-	$('addCaster').onclick = () => { draft.push({ name: '', handle: '' }); drawCasters(); };
+	const castersForm = KBD.bindDirty('casters', {
+		read: casterRows,
+		fill: drawCasters,
+		live: () => KB.rep.casters.value && KB.rep.casters.value.map((c) => ({ name: c.name || '', handle: c.handle || '' })),
+		onState: (dirty) => { $('saveCasters').disabled = !dirty; $('cState').textContent = dirty ? 'Modifications non enregistrées' : ''; },
+	});
+	$('casters').addEventListener('click', (e) => {
+		const b = e.target.closest('[data-del]');
+		if (!b) return;
+		const list = casterRows();
+		list.splice(+b.dataset.del, 1);
+		drawCasters(list);
+		castersForm.sync();
+	});
+	$('addCaster').onclick = () => { drawCasters([...casterRows(), { name: '', handle: '' }]); castersForm.sync(); };
 	$('saveCasters').onclick = () => {
-		KB.rep.casters.value = draft.map((c) => ({ name: c.name.trim(), handle: c.handle.trim() })).filter((c) => c.name || c.handle);
-		flash($('cMsg'), 'Casters enregistrés');
+		const list = casterRows().filter((c) => c.name || c.handle);
+		KB.rep.casters.value = list;
+		drawCasters(list);
+		KBD.flash('cMsg', 'Casters enregistrés', 'ok', 3500);
 	};
 
-	KB.watch(['match', 'teams'], renderMatch);
-	KB.watch(['casters', 'schedule', 'match', 'teams', lt, ltp], renderLT);
+	// Boutons −1 / +1 reconstruits à chaque score : jamais pendant un appui (deux clics rapides, le 2e serait perdu)
+	KB.watch(['match', 'teams'], KBD.deferWhileEditing('teams', renderMatch));
+	KB.watch([ltp], safePresetList);
 	KB.watch([tk], renderTK);
 	KB.watch(['teams', 'match', 'playerData', 'playerProfiles', 'valorantData', dc], renderDC);
-	KB.watch(['casters'], renderCasters);
+	KB.watch(['casters'], () => castersForm.sync());
 </script>
 </body>
 </html>

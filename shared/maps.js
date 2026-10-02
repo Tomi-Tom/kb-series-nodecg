@@ -1,6 +1,7 @@
 // Helpers partie "maps" (transition, map-intro, map-series, map-result, panneau maps-transitions)
-// Import après kb.js : <script src="../shared/maps.js"></script> → window.KBM
-(function () {
+// Navigateur : <script src="../shared/maps.js"></script> après kb.js → window.KBM
+// Node       : require('../shared/maps.js') (valeurs par défaut : KBM.DEFAULT, KBM.TRANSITION_DEFAULT)
+(function (root) {
 	const KBM = {};
 
 	KBM.DEFAULT = {
@@ -125,7 +126,6 @@
 		const map = { ltr: ([u, v]) => [u, v], rtl: ([u, v]) => [100 - u, v], down: ([u, v]) => [v, u], up: ([u, v]) => [v, 100 - u], diag: ([u, v]) => [u, 100 - v] }[dir] || ((p) => p);
 		return uv.map(map);
 	}
-	KBM.stingerPoly = poly;
 	const covers = (pts) => {
 		// L'écran (0..100)² est couvert si ses 4 coins sont dans le polygone convexe
 		let area = 0;
@@ -235,37 +235,6 @@
 	KBM.pct = (v) => { const n = parseFloat(v); return isNaN(n) ? '–' : Math.round(n) + '%'; };
 	KBM.dec = (v, d = 2) => { const n = parseFloat(v); return isNaN(n) ? '–' : n.toFixed(d); };
 
-	/** Pose --team-a / --team-b sur un élément */
-	KBM.teamVars = (el, match = KB.rep.match.value) => {
-		const A = KBM.teamOf('A', match), B = KBM.teamOf('B', match);
-		el.style.setProperty('--team-a', (A && A.color) || '#3b8fe6');
-		el.style.setProperty('--team-b', (B && B.color) || '#ff4655');
-	};
-
-	/** Gère visible/hidden d'une scène plein écran. Les re-rendus pendant l'affichage ne rejouent pas les entrées. */
-	KBM.scene = (el, settleMs = 3400) => {
-		const p = KB.presence(el, 420);
-		let settleT;
-		return {
-			get visible() { return p.visible; },
-			set(visible, renderFn) {
-				if (visible && !p.visible) {
-					el.classList.remove('kb-settled');
-					renderFn();
-					p.show();
-					clearTimeout(settleT);
-					settleT = setTimeout(() => el.classList.add('kb-settled'), settleMs);
-				} else if (visible) {
-					renderFn();
-				} else if (p.visible) {
-					clearTimeout(settleT);
-					el.classList.remove('kb-settled');
-					p.hide();
-				}
-			},
-		};
-	};
-
 	/**
 	 * Anime les données qui changent : chaque élément [data-k] dont data-v (ou le texte) diffère du rendu précédent
 	 * reçoit .kbm-chg — seulement quand la scène est installée (pas pendant l'entrée).
@@ -274,10 +243,57 @@
 		const settled = root.classList.contains('kb-settled');
 		root.querySelectorAll('[data-k]').forEach((el) => {
 			const k = el.dataset.k, v = el.dataset.v ?? el.textContent;
-			if (settled && store.has(k) && store.get(k) !== v) el.classList.add('kbm-chg');
+			if (settled && store.has(k) && store.get(k) !== v) {
+				// Le nœud est réutilisé d'un rendu à l'autre (KBM.patch) : on rejoue le flash puis on retire la classe,
+				// sinon elle écraserait l'entrée .kb-anim au prochain affichage
+				KB.restart(el, 'kbm-chg');
+				el.addEventListener('animationend', function done(e) {
+					if (e.target === el && e.animationName === 'kbm-chg') { el.classList.remove('kbm-chg'); el.removeEventListener('animationend', done); }
+				});
+			}
 			store.set(k, v);
 		});
 	};
+
+	// Classes posées après coup sur un nœud (flash en cours) : KBM.patch ne les retire pas
+	const TRANSIENT = ['kbm-chg'];
+	const sameShape = (a, b) => a.childNodes.length === b.childNodes.length && [...a.childNodes].every((n, i) => {
+		const m = b.childNodes[i];
+		return n.nodeType === m.nodeType && n.nodeName === m.nodeName && (n.nodeType !== 1 || sameShape(n, m));
+	});
+	const syncNode = (a, b) => {
+		a.childNodes.forEach((n, i) => {
+			const m = b.childNodes[i];
+			if (n.nodeType === 3) { if (n.nodeValue !== m.nodeValue) n.nodeValue = m.nodeValue; return; }
+			if (n.nodeType !== 1) return;
+			for (const { name } of [...n.attributes]) if (!m.hasAttribute(name)) n.removeAttribute(name);
+			for (const { name, value } of [...m.attributes]) {
+				const v = name === 'class' ? [value, ...TRANSIENT.filter((c) => n.classList.contains(c))].join(' ') : value;
+				if (n.getAttribute(name) !== v) n.setAttribute(name, v);
+			}
+			syncNode(n, m);
+		});
+	};
+	/**
+	 * Met à jour le contenu de root avec html SANS reconstruire les nœuds quand la structure est la même
+	 * (mêmes balises, même imbrication) et que `key` n'a pas changé : seuls textes et attributs sont modifiés,
+	 * les animations en cours (boucles, entrées) continuent. Sinon, reconstruit tout. Renvoie true si reconstruit.
+	 * Ex. KBM.patch($('#content'), html, mapName)
+	 */
+	KBM.patch = (root, html, key = '') => {
+		const tpl = document.createElement('template');
+		tpl.innerHTML = html;
+		if (root.dataset.patchKey !== String(key) || !sameShape(root, tpl.content)) {
+			root.replaceChildren(tpl.content);
+			root.dataset.patchKey = key;
+			return true;
+		}
+		syncNode(root, tpl.content);
+		return false;
+	};
+
+	/** Valeur CSS url("…") sûre pour une adresse venant d'un replicant (style.backgroundImage, attribut style après KB.esc) */
+	KBM.cssUrl = (u) => 'url("' + String(u ?? '').replace(/[\r\n]/g, '').replace(/["\\]/g, '\\$&') + '")';
 
 	/** Stat d'un joueur (KB.player) en texte court, ou '–' */
 	KBM.stat = (p, key, digits) => {
@@ -290,5 +306,6 @@
 	/** Précharge des images (splash du stinger) */
 	KBM.preload = (urls) => { for (const u of urls) if (u) { const i = new Image(); i.src = u; } };
 
-	window.KBM = KBM;
-})();
+	if (typeof module !== 'undefined' && module.exports) module.exports = KBM;
+	else root.KBM = KBM;
+})(typeof window !== 'undefined' ? window : globalThis);

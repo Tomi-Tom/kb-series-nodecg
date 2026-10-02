@@ -2,11 +2,14 @@
 <html lang="fr">
 <head>
 	<meta charset="utf-8">
+	<title>Bracket &amp; Groupes</title>
+	<!--
+		Panneau Bracket & Groupes : classement des groupes (V/D, rounds) et phase finale (quarts → finale, petite finale).
+		Écrit `bracket` (la propagation des vainqueurs est faite par extension/bracket.js) et `bracketGraphics` (match LIVE mis en avant ;
+		visibilité Groupes / Bracket via KBO). Messages : `bracket:fillQuarters`, `bracket:reset` (sauvegarde faite par le serveur avant).
+	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
-		.vis { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; }
-		.vis .status { margin: 0; }
-		.vis button { min-width: 110px; }
 		.gcard .ghead { display: flex; gap: 6px; align-items: center; }
 		.gcard .ghead input { font-weight: 700; }
 		table { width: 100%; border-collapse: collapse; margin-top: 6px; }
@@ -20,6 +23,7 @@
 		td.x { width: 30px; }
 		td.x button, .icon { padding: 5px 8px; }
 		.round { margin-top: 10px; }
+		.round-title { font-size: 12px; color: var(--muted); margin: 6px 0 3px; }
 		.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 		.match { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
 		.match.live { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
@@ -34,7 +38,6 @@
 		.side.w select { border-color: var(--gold); }
 		.toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
 		.toolbar button { flex: 1 1 auto; }
-		.chk { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; margin: 8px 0 0; cursor: pointer; }
 		.inline { display: flex; align-items: center; gap: 8px; }
 		.inline label { margin: 0; white-space: nowrap; }
 		.inline input { width: 70px; }
@@ -43,20 +46,14 @@
 <body>
 	<h3>Affichage</h3>
 	<div class="card">
-		<div class="vis">
-			<div class="status"><span class="dot" id="dotGroups"></span>Classement des groupes</div>
-			<button id="btnGroups" data-gfx="groups">AFFICHER</button>
-			<div class="status"><span class="dot" id="dotBracket"></span>Arbre de la phase finale</div>
-			<button id="btnBracket" data-gfx="bracket">AFFICHER</button>
-		</div>
+		<div id="ovBox"></div>
 		<label class="chk"><input type="checkbox" id="highlightLive"> Mettre en avant le match en cours (LIVE)</label>
 	</div>
 
 	<h3>Actions</h3>
 	<div class="toolbar">
 		<button class="gold" id="btnFill">Remplir les quarts depuis les groupes</button>
-		<button id="btnDemo">Données de démo</button>
-		<button class="danger" id="btnReset">Réinitialiser</button>
+		<button class="danger" id="btnReset" title="Vide les groupes et la phase finale (une sauvegarde est faite avant)">Réinitialiser</button>
 	</div>
 	<div class="hint">Croisement : 1A-4B, 2B-3A, 1B-4A, 2A-3B (2 groupes) · 1A-2B, 1C-2D, 1B-2A, 1D-2C (4 groupes). Les vainqueurs avancent automatiquement ; les perdants des demies vont en petite finale.</div>
 	<div class="msg" id="msg"></div>
@@ -71,29 +68,20 @@
 
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/bracket.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlays.js"></script>
 	<script>
 		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
-		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: { groups: { visible: false }, bracket: { visible: false }, highlightLive: true } });
+		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: KB.clone(KBB.GRAPHICS_DEFAULT) });
 		const NUM = new Set(['w', 'l', 'rw', 'rl', 'scoreA', 'scoreB', 'qualify']);
+		const esc = KB.esc;
 
-		const msg = (t, cls = 'ok') => { const m = KB.$('#msg'); m.textContent = t; m.className = 'msg ' + cls; clearTimeout(msg.t); msg.t = setTimeout(() => { m.textContent = ''; }, 4000); };
+		const msg = (t, kind = 'ok') => KBD.flash('msg', t, kind, 4000);
+		const teamOptions = (selected) => KBD.teamOptions(selected, { empty: '— À déterminer —' });
 
-		// ---------- Chemins dans le replicant ----------
-		const getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-		function setPath(path, value) {
-			const keys = path.split('.');
-			const last = keys.pop();
-			const parent = keys.reduce((o, k) => (o == null ? undefined : o[k]), bracketRep.value);
-			if (parent && parent[last] !== value) parent[last] = value;
-		}
-
-		function teamOptions(selected) {
-			const teams = Object.values(KB.rep.teams.value || {}).sort((a, b) => String(a.name).localeCompare(String(b.name)));
-			let o = `<option value="">— À déterminer —</option>`;
-			for (const t of teams) o += `<option value="${KB.esc(t.id)}">${KB.esc(t.name)}${t.tag ? ' (' + KB.esc(t.tag) + ')' : ''}</option>`;
-			if (selected && !teams.some((t) => t.id === selected)) o += `<option value="${KB.esc(selected)}">${KB.esc(selected)} (inconnue)</option>`;
-			return o;
-		}
+		/* ---------- Écrans Groupes / Bracket (exclusivité gérée par KBO) ---------- */
+		KBO.bind('#ovBox');
+		KB.watch(KBO.repNames(), () => { KB.$('#ovBox').innerHTML = ['groups', 'bracket'].map((id) => KBO.row(id)).join(''); });
 
 		// ---------- Construction (seulement quand la forme change) ----------
 		let shapeKey = '';
@@ -102,15 +90,15 @@
 			const groups = bk.groups || [];
 			KB.$('#groups').innerHTML = groups.map((g, gi) => `
 				<div class="card gcard">
-					<div class="ghead"><input data-path="groups.${gi}.name" placeholder="Nom du groupe"><button class="danger icon shrink" data-act="delGroup" data-g="${gi}" title="Supprimer le groupe">✕</button></div>
+					<div class="ghead"><input data-path="groups.${gi}.name" placeholder="Nom du groupe" aria-label="Nom du groupe ${gi + 1}"><button class="danger icon shrink" data-act="delGroup" data-g="${gi}" title="Supprimer le groupe">✕</button></div>
 					<table><thead><tr><th>#</th><th>Équipe</th><th>V</th><th>D</th><th>Rds +</th><th>Rds −</th><th>Diff</th><th></th></tr></thead><tbody>
 					${(g.teams || []).map((t, ti) => `<tr>
 						<td class="rk" data-rank="${gi}.${ti}"></td>
-						<td><select data-path="groups.${gi}.teams.${ti}.id">${teamOptions(t && t.id)}</select></td>
-						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.w"></td>
-						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.l"></td>
-						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rw"></td>
-						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rl"></td>
+						<td><select data-path="groups.${gi}.teams.${ti}.id" aria-label="Équipe">${teamOptions(t && t.id)}</select></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.w" aria-label="Victoires"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.l" aria-label="Défaites"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rw" aria-label="Rounds gagnés"></td>
+						<td class="n"><input type="number" min="0" data-path="groups.${gi}.teams.${ti}.rl" aria-label="Rounds perdus"></td>
 						<td class="df" data-diff="${gi}.${ti}"></td>
 						<td class="x"><button class="icon" data-act="delTeam" data-g="${gi}" data-t="${ti}" title="Retirer">✕</button></td></tr>`).join('')}
 					</tbody></table>
@@ -121,19 +109,19 @@
 			const card = (path, def) => `
 				<div class="match" data-match="${path}">
 					<div class="top">
-						<input data-path="${path}.label" placeholder="${KB.esc(def)}">
-						<input data-path="${path}.time" placeholder="hh:mm">
-						<select data-path="${path}.status"><option value="upcoming">À venir</option><option value="live">En cours</option><option value="done">Terminé</option></select>
+						<input data-path="${path}.label" placeholder="${esc(def)}" aria-label="Libellé (${esc(def)})">
+						<input data-path="${path}.time" placeholder="hh:mm" aria-label="Heure (${esc(def)})">
+						<select data-path="${path}.status" aria-label="Statut (${esc(def)})"><option value="upcoming">À venir</option><option value="live">En cours</option><option value="done">Terminé</option></select>
 					</div>
 					${['a', 'b'].map((s) => `<div class="side" data-side="${path}.${s}">
-						<select data-path="${path}.${s}">${teamOptions(getPath(bk, path + '.' + s))}</select>
-						<input type="number" min="0" data-path="${path}.score${s.toUpperCase()}">
+						<select data-path="${path}.${s}" aria-label="Équipe ${s.toUpperCase()} (${esc(def)})">${teamOptions(KBD.getPath(bk, path + '.' + s))}</select>
+						<input type="number" min="0" data-path="${path}.score${s.toUpperCase()}" aria-label="Score équipe ${s.toUpperCase()} (${esc(def)})">
 						<button class="win" data-act="win" data-m="${path}" data-s="${s}" title="Désigner vainqueur">V</button></div>`).join('')}
 				</div>`;
 			KB.$('#playoffs').innerHTML = `
-				<div class="round"><label>Quarts de finale · ONLINE</label><div class="mgrid">${(p.quarters || []).map((_, i) => card('playoffs.quarters.' + i, 'QF' + (i + 1))).join('')}</div></div>
-				<div class="round"><label>Demi-finales · PRÉSENTIEL</label><div class="mgrid">${(p.semis || []).map((_, i) => card('playoffs.semis.' + i, 'Demi-finale ' + (i + 1))).join('')}</div></div>
-				<div class="round"><label>Finales · PRÉSENTIEL</label><div class="mgrid">${card('playoffs.final', 'Grande finale')}${card('playoffs.third', 'Petite finale')}</div>
+				<div class="round"><div class="round-title">Quarts de finale · ONLINE</div><div class="mgrid">${(p.quarters || []).map((_, i) => card('playoffs.quarters.' + i, 'QF' + (i + 1))).join('')}</div></div>
+				<div class="round"><div class="round-title">Demi-finales · PRÉSENTIEL</div><div class="mgrid">${(p.semis || []).map((_, i) => card('playoffs.semis.' + i, 'Demi-finale ' + (i + 1))).join('')}</div></div>
+				<div class="round"><div class="round-title">Finales · PRÉSENTIEL</div><div class="mgrid">${card('playoffs.final', 'Grande finale')}${card('playoffs.third', 'Petite finale')}</div>
 				<div class="hint">Gauche : grande finale · droite : petite finale.</div></div>`;
 		}
 
@@ -144,7 +132,7 @@
 			if (key !== shapeKey) { shapeKey = key; build(); }
 			for (const el of KB.$$('[data-path]')) {
 				if (el === document.activeElement && el.tagName === 'INPUT') continue;
-				const v = getPath(bk, el.dataset.path);
+				const v = KBD.getPath(bk, el.dataset.path);
 				const s = v == null ? '' : String(v);
 				if (el.value !== s) el.value = s;
 			}
@@ -160,7 +148,7 @@
 				});
 			});
 			for (const el of KB.$$('[data-match]')) {
-				const m = getPath(bk, el.dataset.match) || {};
+				const m = KBD.getPath(bk, el.dataset.match) || {};
 				el.classList.toggle('live', m.status === 'live');
 				el.classList.toggle('done', m.status === 'done');
 				for (const s of ['a', 'b']) {
@@ -168,15 +156,7 @@
 					KB.$(`button[data-s="${s}"]`, el).classList.toggle('active', m.winner === s);
 				}
 			}
-			const g = gfxRep.value || {};
-			for (const k of ['groups', 'bracket']) {
-				const on = !!(g[k] && g[k].visible);
-				const btn = KB.$(`[data-gfx="${k}"]`);
-				btn.textContent = on ? 'MASQUER' : 'AFFICHER';
-				btn.className = on ? 'danger' : 'show';
-				KB.$('#dot' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', on);
-			}
-			KB.$('#highlightLive').checked = g.highlightLive !== false;
+			KB.$('#highlightLive').checked = (gfxRep.value || {}).highlightLive !== false;
 		}
 
 		// ---------- Écriture ----------
@@ -190,29 +170,31 @@
 			if (NUM.has(key)) v = Math.max(0, parseInt(v, 10) || 0);
 			else if (el.tagName === 'SELECT' && v === '' && key !== 'status') v = null;
 			if (key === 'status') {
-				const m = getPath(bracketRep.value, path.slice(0, -'.status'.length));
+				const m = KBD.getPath(bracketRep.value, path.slice(0, -'.status'.length));
 				if (v !== 'done' && m && m.winner) m.winner = null; // un match non terminé n'a pas de vainqueur
 			}
 			// Changer une équipe d'un match annule son vainqueur
 			if ((key === 'a' || key === 'b') && /^playoffs\./.test(path)) {
-				const m = getPath(bracketRep.value, path.slice(0, -2));
+				const m = KBD.getPath(bracketRep.value, path.slice(0, -2));
 				if (m && m.winner) m.winner = null;
 			}
-			setPath(path, v);
+			KBD.setPath(bracketRep.value, path, v);
 		});
 
-		document.addEventListener('click', async (e) => {
+		async function fillQuarters() {
+			try {
+				const pairs = await nodecg.sendMessage('bracket:fillQuarters');
+				msg('Quarts remplis : ' + pairs.map(([a, c]) => `${(KB.team(a) || {}).tag || a || '?'} vs ${(KB.team(c) || {}).tag || c || '?'}`).join(' · '));
+			} catch (err) { msg(err.message || String(err), 'err'); }
+		}
+
+		document.addEventListener('click', (e) => {
 			const b = e.target.closest('button');
 			if (!b) return;
 			const bk = bracketRep.value;
-			if (b.dataset.gfx) {
-				const k = b.dataset.gfx;
-				gfxRep.value[k] = { ...(gfxRep.value[k] || {}), visible: !(gfxRep.value[k] && gfxRep.value[k].visible) };
-				return;
-			}
 			switch (b.dataset.act || b.id) {
 				case 'win': {
-					const m = getPath(bk, b.dataset.m);
+					const m = KBD.getPath(bk, b.dataset.m);
 					if (!m) return;
 					if (m.winner === b.dataset.s) { m.winner = null; m.status = 'live'; }
 					else {
@@ -223,19 +205,24 @@
 				}
 				case 'addTeam': bk.groups[+b.dataset.g].teams.push({ id: null, w: 0, l: 0, rw: 0, rl: 0 }); break;
 				case 'delTeam': bk.groups[+b.dataset.g].teams.splice(+b.dataset.t, 1); break;
-				case 'delGroup': if (confirm('Supprimer ce groupe ?')) bk.groups.splice(+b.dataset.g, 1); break;
+				case 'delGroup': KBD.arm(b, () => bracketRep.value.groups.splice(+b.dataset.g, 1), { label: 'Supprimer ?' }); break;
 				case 'btnAddGroup': bk.groups.push({ name: 'Groupe ' + String.fromCharCode(65 + bk.groups.length), teams: [] }); break;
 				case 'btnFill': {
-					const done = (bk.playoffs.quarters || []).some((m) => m.winner || m.status !== 'upcoming');
-					if (done && !confirm('Des quarts ont déjà des résultats : les remplacer ?')) return;
-					const pairs = await nodecg.sendMessage('bracket:fillQuarters');
-					msg('Quarts remplis : ' + pairs.map(([a, c]) => `${(KB.team(a) || {}).tag || a || '?'} vs ${(KB.team(c) || {}).tag || c || '?'}`).join(' · '));
+					// Des quarts ont déjà des résultats : les remplacer demande confirmation
+					const played = (bk.playoffs.quarters || []).some((m) => m.winner || m.status !== 'upcoming');
+					if (played || b.classList.contains('armed')) KBD.arm(b, fillQuarters, { label: 'Remplacer les quarts joués ?' });
+					else fillQuarters();
 					break;
 				}
-				case 'btnDemo': if (confirm('Remplacer le bracket par les données de démo ?')) { await nodecg.sendMessage('bracket:demo'); msg('Démo chargée.'); } break;
-				case 'btnReset': if (confirm('Tout effacer (groupes et phase finale) ?')) { await nodecg.sendMessage('bracket:reset'); msg('Bracket réinitialisé.'); } break;
 			}
 		});
+
+		KBD.confirm('#btnReset', async () => {
+			try {
+				const r = await nodecg.sendMessage('bracket:reset');
+				msg('Bracket réinitialisé' + (r && r.backup ? ` (sauvegarde : ${r.backup})` : '') + '.');
+			} catch (err) { msg(err.message || String(err), 'err'); }
+		}, { label: 'Tout effacer (groupes et phase finale) ?' });
 
 		KB.watch(['teams', bracketRep, gfxRep], sync);
 	</script>

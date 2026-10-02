@@ -3,167 +3,17 @@
 <head>
 	<meta charset="utf-8">
 	<title>Équipes &amp; Joueurs</title>
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700&display=swap">
+	<!--
+		Panneau « Équipes & Joueurs » : composition des équipes, fiches joueurs (saisie manuelle qui prime sur tracker.gg)
+		et import des profils tracker.gg (extension Chrome, favori, copier-coller du JSON).
+		Écrit : teams, playerData, playerProfiles, match (équipe supprimée, agents joués d'un joueur renommé),
+		playerStatsGraphic / playerDuel / mapsGraphics (Riot ID d'un joueur renommé).
+		Routes : GET /valorant-tournament/tracker-status, POST /valorant-tournament/tracker-import.
+		Code : players/data.js (données), board.js (tableau), sheet.js (fiche), preview.js (aperçu + import), main.js (rendu).
+	-->
+	<link rel="stylesheet" href="../shared/fonts.css">
 	<link rel="stylesheet" href="../shared/dashboard.css">
-	<style>
-		body { padding: 10px; }
-		.lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 8px 0 3px; }
-		.lbl small { text-transform: none; letter-spacing: 0; font-size: 11px; }
-		.msg:empty { display: none; }
-		.msg.info { color: var(--blue); }
-		.msg.box { padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: rgba(59, 143, 230, .06); }
-		.msg.box.ok { border-color: rgba(61, 220, 151, .45); background: rgba(61, 220, 151, .07); }
-		.msg.box.err { border-color: rgba(255, 70, 85, .45); background: rgba(255, 70, 85, .07); }
-		.msg.box.info { border-color: rgba(59, 143, 230, .45); }
-		.kb-team-mono { display: grid; place-items: center; background: linear-gradient(135deg, var(--c, var(--blue)), #111845); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); font: 400 1em 'Anton', Impact, sans-serif; color: #fff; flex: 0 0 auto; }
-		.kb-team-logo { object-fit: contain; flex: 0 0 auto; }
-
-		/* En-tête */
-		.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-		.top h2 { margin: 0; font: 400 26px/1 'Anton', Impact, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
-		.top h2 span { color: var(--gold); }
-		.top .help { flex: 1 1 260px; font-size: 12px; color: var(--muted); }
-		.ext { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 10px; margin: 0; }
-		.ext .txt { color: var(--muted); }
-		.ext .txt b { color: var(--text); font-weight: 600; }
-		.ext button { padding: 3px 8px; font-size: 12px; }
-
-		/* Tableau des équipes */
-		.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 10px; align-items: start; }
-		.tcol { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c, var(--line)); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; }
-		.tcol.pool { background: rgba(17, 24, 69, .55); border-style: dashed; border-top-style: solid; }
-		.tcol.drop-on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 18px rgba(201, 178, 116, .25); }
-		.thead { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px; cursor: pointer; border-radius: 4px 4px 0 0; }
-		.tcol.pool .thead { cursor: default; }
-		.thead:hover { background: rgba(255, 255, 255, .03); }
-		.thead .tinfo { flex: 1; min-width: 0; }
-		.thead .tname { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.thead .tsub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.thead .tsub b { color: var(--gold); font-weight: 700; }
-		.count { flex: 0 0 auto; font: 700 15px 'Barlow Condensed', sans-serif; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--line); }
-		.count.full { color: var(--ok); border-color: rgba(61, 220, 151, .5); }
-		.count.low { color: var(--gold); border-color: rgba(201, 178, 116, .6); background: rgba(201, 178, 116, .1); }
-		.edit-ico { color: var(--muted); font-size: 13px; flex: 0 0 auto; }
-		.tbody { padding: 0 6px 6px; display: flex; flex-direction: column; gap: 4px; min-height: 40px; }
-		.subsep { margin: 6px 2px 0; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 6px; }
-		.subsep::after { content: ''; flex: 1; height: 1px; background: rgba(201, 178, 116, .4); }
-		.slot { border: 1px dashed var(--line); border-radius: 4px; padding: 4px 8px; font-size: 11px; color: #5f6aa0; }
-		.pool-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 6px 4px; }
-		.drop-line { height: 3px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); margin: -1px 0; }
-		.tadd { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
-		.tadd input { padding: 5px 7px; font-size: 12px; }
-		.tadd button { padding: 4px 9px; flex: 0 0 auto; }
-
-		/* Carte joueur */
-		.pcard { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px; cursor: grab; }
-		.pcard:hover { border-color: var(--muted); }
-		.pcard.sel { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
-		.pcard.dragging { opacity: .35; }
-		.pcard .l1 { display: flex; align-items: center; gap: 7px; }
-		.pcard .l2 { display: flex; gap: 4px; margin-top: 4px; }
-		.pcard .l2 select { padding: 3px 4px; font-size: 11px; background: var(--panel); }
-		.pcard .l2 select.move { flex: 0 0 92px; }
-		.thumb { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 3px; overflow: hidden; background: radial-gradient(circle at 50% 35%, var(--panel-2), var(--bg)); display: grid; place-items: center; font: 700 14px 'Segoe UI', sans-serif; color: var(--muted); }
-		.thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-		.thumb img.agent { object-fit: contain; }
-		.pcard .info { flex: 1; min-width: 0; }
-		.pcard .nm { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.pcard .nm span { color: var(--muted); font-weight: 400; font-size: 12px; }
-		.pcard .sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.pcard .rk { width: 24px; height: 24px; flex: 0 0 auto; }
-		.pills { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
-		.pill { padding: 0 4px; border-radius: 3px; font: 700 9px 'Segoe UI', sans-serif; letter-spacing: .06em; border: 1px solid var(--line); color: var(--muted); text-align: center; }
-		.pill.trk { color: var(--ok); border-color: rgba(61, 220, 151, .5); background: rgba(61, 220, 151, .08); }
-		.pill.man { color: var(--gold); border-color: rgba(201, 178, 116, .55); background: rgba(201, 178, 116, .1); }
-		.pill.off { opacity: .4; }
-
-		/* Édition d'équipe */
-		.tform { padding: 8px; display: grid; gap: 6px; border-bottom: 1px solid var(--line); background: rgba(201, 178, 116, .05); }
-		.tform .r { display: grid; grid-template-columns: 1fr 74px 44px; gap: 6px; }
-		.tform input, .tform select { padding: 5px 7px; font-size: 12px; }
-		.tform input[type=color] { padding: 1px; height: 30px; }
-		.tform .lg { display: grid; grid-template-columns: 44px 1fr; gap: 6px; align-items: center; }
-		.tform .lgp { width: 44px; height: 44px; display: grid; place-items: center; background: #050822; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-		.tform .lgp img { max-width: 100%; max-height: 100%; object-fit: contain; }
-		.tform .btns { display: flex; gap: 4px; flex-wrap: wrap; }
-		.tform .btns button { padding: 5px 9px; font-size: 12px; }
-		.tform .btns .sp { flex: 1; }
-		.newcol { border: 2px dashed var(--line); border-radius: 6px; min-height: 120px; display: grid; place-items: center; background: none; color: var(--muted); font-size: 14px; font-weight: 700; }
-		.newcol:hover { border-color: var(--gold); color: var(--gold); }
-		button.armed { background: var(--red); color: #fff; border-color: var(--red); }
-
-		/* Fiche + aperçu */
-		.lower { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); gap: 12px; align-items: start; margin-top: 16px; }
-		@media (max-width: 900px) { .lower { grid-template-columns: 1fr; } }
-		.back { font-size: 12px; float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
-		.sheet-head { display: flex; gap: 12px; align-items: stretch; }
-		.photo-prev { flex: 0 0 110px; height: 136px; border: 1px solid var(--line); border-radius: 4px; background: radial-gradient(circle at 50% 40%, var(--panel-2), var(--bg)); display: grid; place-items: center; overflow: hidden; }
-		.photo-prev img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
-		.photo-prev span { font-size: 11px; color: var(--muted); text-align: center; padding: 6px; }
-		.head-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-		.big-name { font: 400 30px/1.05 'Anton', Impact, sans-serif; text-transform: uppercase; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.big-name span { color: var(--muted); font-size: 20px; }
-		.head-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-		.head-info .row { margin-top: auto; padding-top: 8px; flex-wrap: wrap; }
-		.head-info .row > button { flex: 0 0 auto; }
-		.sec { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-		.gauto { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
-		.sec-t { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
-		.sec-t small { color: var(--muted); letter-spacing: .02em; text-transform: none; font-weight: 400; margin-left: 6px; }
-		.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-		@media (max-width: 1000px) { .grid4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-		.f .lbl { margin-top: 6px; }
-		input.ov, select.ov { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(201, 178, 116, .35); }
-		input::placeholder { color: #5f6aa0; }
-		.rank-field { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
-		.rank-field.ov { border-color: var(--gold); }
-		.rank-field img, .rank-field .noicon { width: 34px; height: 34px; flex: 0 0 auto; }
-		.rank-field .noicon { display: grid; place-items: center; color: var(--muted); }
-		.rank-field .rn { flex: 1; min-width: 0; font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.rank-field .rn small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
-		.rank-field button { padding: 4px 8px; font-size: 12px; flex: 0 0 auto; }
-		.tiers { margin-top: 6px; padding: 8px; background: var(--bg); border: 1px solid var(--gold); border-radius: 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 10px; }
-		.tiers[hidden] { display: none; }
-		.fam { display: flex; align-items: center; gap: 2px; }
-		.fam .fl { flex: 0 0 72px; font-size: 11px; color: var(--muted); }
-		.tier { padding: 2px; background: none; border: 1px solid transparent; border-radius: 4px; line-height: 0; }
-		.tier img { width: 30px; height: 30px; }
-		.tier:hover { border-color: var(--muted); background: var(--panel); }
-		.tier.cur { border-color: var(--gold); background: rgba(201, 178, 116, .12); }
-		.agent-sel { display: flex; align-items: center; gap: 6px; }
-		.agent-sel img, .agent-sel .ph { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 3px; background: var(--bg); border: 1px solid var(--line); }
-		.preview { display: flex; gap: 12px; padding: 10px; border-radius: 6px; border: 1px solid var(--line); border-top: 3px solid var(--c, var(--line)); background: linear-gradient(180deg, rgba(59, 143, 230, .07), transparent 60%), var(--bg); }
-		.pv-photo { flex: 0 0 110px; height: 160px; display: grid; place-items: end center; overflow: hidden; border-radius: 4px; background: radial-gradient(circle at 50% 45%, var(--panel-2), transparent 70%); }
-		.pv-photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-		.pv-photo span { align-self: center; font-size: 11px; color: var(--muted); }
-		.pv-main { flex: 1; min-width: 0; }
-		.pv-name { font: 400 26px/1 'Anton', Impact, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.pv-name span { color: var(--muted); font-size: 16px; }
-		.pv-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
-		.pv-meta b { color: var(--text); font-weight: 600; }
-		.pv-ranks { display: flex; gap: 14px; margin-top: 6px; font-size: 12px; }
-		.pv-ranks > span { display: flex; align-items: center; gap: 6px; padding: 1px 4px 1px 1px; border-radius: 3px; }
-		.pv-ranks > span.m { outline: 1px solid var(--gold); }
-		.pv-ranks img { width: 28px; height: 28px; }
-		.pv-ranks small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
-		.pv-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
-		.pv-stat { padding: 3px 5px; background: var(--panel); border-radius: 3px; border: 1px solid transparent; }
-		.pv-stat.m { border-color: rgba(201, 178, 116, .8); }
-		.pv-stat small { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.pv-stat b { font: 700 17px 'Barlow Condensed', 'Arial Narrow', sans-serif; }
-		.pv-agents { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-		.pv-agent { display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border-radius: 3px; background: var(--panel); border-left: 3px solid var(--ac, var(--line)); font-size: 12px; }
-		.pv-agent.m { outline: 1px solid var(--gold); }
-		.pv-agent img { width: 24px; height: 24px; }
-		.pv-agent small { color: var(--muted); }
-		.legend { font-size: 11px; color: var(--muted); margin-top: 6px; }
-		.legend i { display: inline-block; width: 9px; height: 9px; border: 1px solid var(--gold); border-radius: 2px; vertical-align: middle; margin-right: 3px; }
-		.danger-zone { display: flex; gap: 6px; flex-wrap: wrap; }
-		.danger-zone button { flex: 1 1 200px; }
-		.bookmarklet { display: block; text-align: center; padding: 8px; margin-top: 6px; border: 2px dashed var(--gold); border-radius: 4px; color: var(--gold); font-weight: 700; letter-spacing: .06em; text-decoration: none; cursor: grab; }
-		textarea { font: 12px monospace; }
-		code { font-size: 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; word-break: break-all; }
-	</style>
+	<link rel="stylesheet" href="players/players.css">
 </head>
 <body>
 	<div class="top" id="top">
@@ -172,10 +22,10 @@
 		<div class="card ext" id="extBox">
 			<span class="dot" id="extDot"></span>
 			<span class="txt" id="extTxt">Recherche de l'extension…</span>
-			<button id="extRetry" title="Re-tester la détection">⟳</button>
+			<button id="extRetry" title="Re-tester la détection de l'extension" aria-label="Re-tester la détection de l'extension">⟳</button>
 		</div>
 	</div>
-	<div class="msg box" id="boardMsg" style="margin-top:8px"></div>
+	<div class="msg box" id="boardMsg"></div>
 	<div class="board" id="board"></div>
 
 	<div class="lower">
@@ -200,19 +50,19 @@
 				<div class="sec">
 					<div class="sec-t">Identité</div>
 					<div class="gauto f">
-						<div><div class="lbl">Pseudo affiché</div><input id="fDisplay" data-field="displayName"></div>
-						<div><div class="lbl">Nom réel <small>(optionnel)</small></div><input id="fReal" data-field="realName" placeholder="Prénom Nom"></div>
-						<div><div class="lbl">Riot ID</div><input id="fRiot" placeholder="Pseudo#TAG"></div>
-						<div><div class="lbl">Équipe</div><select id="fTeam"></select></div>
-						<div><div class="lbl">Rôle</div><select id="fRole"></select></div>
+						<div><label class="flabel" for="fDisplay">Pseudo affiché</label><input id="fDisplay" data-field="displayName"></div>
+						<div><label class="flabel" for="fReal">Nom réel <small>(optionnel)</small></label><input id="fReal" data-field="realName" placeholder="Prénom Nom"></div>
+						<div><label class="flabel" for="fRiot">Riot ID</label><input id="fRiot" placeholder="Pseudo#TAG"></div>
+						<div><label class="flabel" for="fTeam">Équipe</label><select id="fTeam"></select></div>
+						<div><label class="flabel" for="fRole">Rôle</label><select id="fRole"></select></div>
 					</div>
 				</div>
 
 				<div class="sec">
 					<div class="sec-t">Photo <small>PNG détouré (buste / plan taille) conseillé</small></div>
 					<div class="gauto f">
-						<div><div class="lbl">Assets « Photos joueurs »</div><select id="fPhotoAsset"></select></div>
-						<div><div class="lbl">ou URL d'image</div><div class="row" style="margin-top:0"><input id="fPhotoUrl" placeholder="https://…"><button id="photoClear" class="shrink danger" title="Retirer la photo">✕</button></div></div>
+						<div><label class="flabel" for="fPhotoAsset">Assets « Photos joueurs »</label><select id="fPhotoAsset"></select></div>
+						<div><label class="flabel" for="fPhotoUrl">ou URL d'image</label><div class="row flush"><input id="fPhotoUrl" placeholder="https://…"><button id="photoClear" class="shrink danger" title="Retirer la photo" aria-label="Retirer la photo">✕</button></div></div>
 					</div>
 					<div class="hint">Ajoute les photos via <b>Assets → Photos joueurs</b> (menu NodeCG), puis choisis-la ici.</div>
 				</div>
@@ -220,8 +70,8 @@
 				<div class="sec">
 					<div class="sec-t">Rang <small>icône officielle ou texte libre</small></div>
 					<div class="gauto f">
-						<div><div class="lbl">Rang actuel</div><div id="rankBox"></div></div>
-						<div><div class="lbl">Peak</div><div id="peakBox"></div></div>
+						<div><label class="flabel" for="rt-rank">Rang actuel</label><div id="rankBox"></div></div>
+						<div><label class="flabel" for="rt-peak">Peak</label><div id="peakBox"></div></div>
 					</div>
 					<div class="tiers" id="tiers" hidden></div>
 				</div>
@@ -251,705 +101,36 @@
 			<div id="preview"><div class="empty">Aucun joueur sélectionné.</div></div>
 			<div class="legend"><i></i>cadre doré = valeur saisie à la main</div>
 
-			<h3 style="margin-top:14px">Import tracker.gg</h3>
+			<h3 class="import-title">Import tracker.gg</h3>
 			<div class="card">
-				<div class="hint" id="extHelp" style="margin-top:0"></div>
+				<div class="hint" id="extHelp"></div>
 				<details>
 					<summary>Favori de secours « ⇪ Envoyer à NodeCG » (sans extension)</summary>
-					<div class="hint">Glisse ce bouton dans ta barre de favoris (Ctrl+Maj+B pour l'afficher). Sur la page tracker.gg d'un joueur, clique dessus : le joueur est importé.</div>
+					<ol class="steps">
+						<li><b>Une seule fois :</b> glisse le bouton ci-dessous dans ta barre de favoris (Ctrl+Maj+B pour l'afficher).</li>
+						<li>Ouvre la page tracker.gg du joueur : « + » d'une colonne, « Importer depuis tracker.gg » ou « Ouvrir tracker.gg ↗ » sur sa fiche.</li>
+						<li>Sur cette page tracker.gg, clique sur le favori <b>⇪ Envoyer à NodeCG</b> : le joueur est importé et sa carte passe en <b>TRK</b>.</li>
+					</ol>
 					<a class="bookmarklet" id="bookmarklet" href="#">⇪ Envoyer à NodeCG</a>
 				</details>
 				<details>
 					<summary>Plan C : copier-coller le JSON</summary>
 					<div class="hint">Ouvre <a id="apiLink" href="#" target="_blank">le lien API du joueur sélectionné</a>, fais Ctrl+A, Ctrl+C puis colle ici :</div>
-					<textarea id="json" placeholder='{"data": {...}}'></textarea>
+					<textarea id="json" class="json" placeholder='{"data": {...}}' aria-label="JSON de l'API tracker.gg"></textarea>
 					<div class="row"><button id="importJson">Importer le JSON</button></div>
 				</details>
+				<div class="msg box" id="importMsg"></div>
 			</div>
 		</div>
 	</div>
 
 <script src="../shared/kb.js"></script>
 <script src="../shared/tracker-import.js"></script>
-<script>
-(() => {
-	const $ = (id) => document.getElementById(id);
-	const esc = KB.esc;
-	const POOL = '__pool';   // colonne « Sans équipe »
-	const NO_TEAM = '';
-	const STARTERS = 5;
-	// Rôles stockés comme dans le reste du kit (shared/match.js) ; lecture insensible à la casse
-	const ROLE_KEYS = ['Duelist', 'Initiator', 'Controller', 'Sentinel', 'Flex', 'IGL', 'Sub', 'Coach'];
-	const TIER_ICON = (n) => `https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/${n}.png`;
-	// Rangs Valorant → n° d'icône tracker (vérifié sur le profil d'Elysira : Platinum 1 = 15, Platinum 2 = 16).
-	// Noms stockés en anglais comme ceux importés de tracker.gg (cohérence d'affichage).
-	const FAMILIES = [['Iron', 'Fer'], ['Bronze', 'Bronze'], ['Silver', 'Argent'], ['Gold', 'Or'], ['Platinum', 'Platine'], ['Diamond', 'Diamant'], ['Ascendant', 'Ascendant'], ['Immortal', 'Immortel']];
-	const TIERS = [{ n: 0, name: 'Unranked', fr: 'Non classé' }];
-	FAMILIES.forEach(([en, fr], i) => { for (let d = 1; d <= 3; d++) TIERS.push({ n: 3 + i * 3 + d - 1, name: `${en} ${d}`, fr: `${fr} ${d}`, fam: i }); });
-	TIERS.push({ n: 27, name: 'Radiant', fr: 'Radiant' });
-	const findTier = (txt) => { const t = String(txt || '').trim().toLowerCase(); return TIERS.find((x) => x.name.toLowerCase() === t || x.fr.toLowerCase() === t) || null; };
-	const STATS = [['kd', 'K/D'], ['acs', 'ACS'], ['adr', 'ADR'], ['hs', 'HS%'], ['kast', 'KAST'], ['winPct', 'Win%'], ['wins', 'Victoires'], ['losses', 'Défaites'], ['matches', 'Matchs'], ['firstBloods', 'First Bloods'], ['clutches', 'Clutchs'], ['aces', 'Aces']];
-	const photoAssets = nodecg.Replicant('assets:player-photos');
-	const logoAssets = nodecg.Replicant('assets:team-logos');
-	let sel = null;
-	try { sel = localStorage.getItem('kbPlayersSel') || null; } catch { /* ignore */ }
-
-	// ---------- Données ----------
-	const clone = (o) => JSON.parse(JSON.stringify(o || {}));
-	const teamsVal = () => KB.rep.teams.value || {};
-	const dataVal = () => KB.rep.playerData.value || {};
-	const profVal = () => KB.rep.playerProfiles.value || {};
-	const orderedTeams = () => {
-		const m = KB.rep.match.value || {};
-		const prio = [m.teamA, m.teamB];
-		return Object.values(teamsVal()).sort((a, b) => {
-			const pa = prio.indexOf(a.id), pb = prio.indexOf(b.id);
-			return (pa < 0 ? 9 : pa) - (pb < 0 ? 9 : pb) || String(a.name).localeCompare(String(b.name));
-		});
-	};
-	const playersOf = (t) => ((t && t.players) || []).filter((p) => p && p.riotId);
-	const riotIdOf = (key) => {
-		for (const t of Object.values(teamsVal())) { const p = playersOf(t).find((x) => KB.key(x.riotId) === key); if (p) return p.riotId; }
-		return (dataVal()[key] && dataVal()[key].riotId) || (profVal()[key] && profVal()[key].riotId) || key;
-	};
-	const allKeys = () => {
-		const s = new Set();
-		for (const t of Object.values(teamsVal())) for (const p of playersOf(t)) s.add(KB.key(p.riotId));
-		Object.keys(dataVal()).forEach((k) => s.add(k));
-		Object.keys(profVal()).forEach((k) => s.add(k));
-		return s;
-	};
-	const ovOf = (key) => (dataVal()[key] && dataVal()[key].overrides) || {};
-	const hasOverrides = (ov) => !!((ov.rank && ov.rank.name) || (ov.peak && ov.peak.name) || Object.values(ov.stats || {}).some((v) => v !== '' && v != null) || (ov.agents || []).some(Boolean));
-	const isManual = (key) => { const d = dataVal()[key] || {}; return hasOverrides(d.overrides || {}) || !!d.displayName || !!d.realName; };
-	const roleNorm = (r) => { const l = String(r || '').toLowerCase(); return ROLE_KEYS.find((k) => k.toLowerCase() === l) || r || ''; };
-
-	function cleanEntry(e) {
-		const ov = e.overrides || {};
-		if (ov.stats) { for (const k of Object.keys(ov.stats)) if (ov.stats[k] === '' || ov.stats[k] == null) delete ov.stats[k]; if (!Object.keys(ov.stats).length) delete ov.stats; }
-		if (ov.agents && !ov.agents.some(Boolean)) delete ov.agents;
-		if (!ov.rank || !ov.rank.name) delete ov.rank;
-		if (!ov.peak || !ov.peak.name) delete ov.peak;
-		if (Object.keys(ov).length) e.overrides = ov; else delete e.overrides;
-		for (const k of ['displayName', 'realName', 'photo']) if (!e[k]) delete e[k];
-		return e;
-	}
-	/** Modifie la fiche playerData[key] (créée si besoin) */
-	function writeData(key, fn) {
-		const all = clone(dataVal());
-		const e = all[key] || {};
-		e.riotId = e.riotId || riotIdOf(key);
-		e.overrides = e.overrides || {};
-		fn(e);
-		all[key] = cleanEntry(e);
-		KB.rep.playerData.value = all;
-	}
-	const writeOv = (key, fn) => writeData(key, (e) => fn(e.overrides));
-	/** Garde une fiche pour un joueur qui quitte toutes les équipes (sinon il disparaîtrait de la liste) */
-	function keepInPool(keys) {
-		const missing = keys.filter((k) => !dataVal()[k] && !profVal()[k]);
-		if (!missing.length) return;
-		const all = clone(dataVal());
-		for (const k of missing) all[k] = { riotId: riotIdOf(k) };
-		KB.rep.playerData.value = all;
-	}
-
-	/** Copie de `teams` sans emplacements vides */
-	function teamsCopy() {
-		const teams = clone(teamsVal());
-		for (const t of Object.values(teams)) t.players = playersOf(t);
-		return teams;
-	}
-	/** Retire le joueur de toutes les équipes (onlyTeam = d'une seule) ; renvoie l'entrée retirée */
-	function detach(teams, key, onlyTeam = null) {
-		let found = null;
-		for (const t of Object.values(teams)) {
-			if (onlyTeam && t.id !== onlyTeam) continue;
-			const i = (t.players || []).findIndex((x) => x && KB.key(x.riotId) === key);
-			if (i >= 0) { found = t.players[i]; t.players.splice(i, 1); }
-		}
-		return found;
-	}
-	const isInTeam = (teams, key) => Object.values(teams).some((t) => t.players.some((p) => KB.key(p.riotId) === key));
-	/**
-	 * Déplace le joueur de la colonne `from` (équipe ou POOL) vers `to` (équipe ou POOL), à l'index donné.
-	 * Un joueur peut appartenir à plusieurs équipes : seule l'équipe source est modifiée.
-	 * from = null → simple ajout dans `to` (sans le retirer d'ailleurs).
-	 */
-	function moveTo(key, from, to, index = Infinity) {
-		const teams = teamsCopy();
-		const rid = riotIdOf(key);
-		const prev = from && from !== POOL && teams[from] ? detach(teams, key, from) : null;
-		if (to && to !== POOL && teams[to]) {
-			const arr = teams[to].players;
-			const j = arr.findIndex((p) => KB.key(p.riotId) === key);
-			const existing = j >= 0 ? arr.splice(j, 1)[0] : null; // déjà dans l'équipe cible : on le repositionne
-			const entry = existing || { riotId: (prev && prev.riotId) || rid, role: (prev && prev.role) || '' };
-			arr.splice(Math.max(0, Math.min(index, arr.length)), 0, entry);
-		}
-		if (!isInTeam(teams, key)) keepInPool([key]);
-		KB.rep.teams.value = teams;
-	}
-	function setRole(key, teamId, role) {
-		const teams = teamsCopy();
-		for (const t of Object.values(teams)) if (!teamId || t.id === teamId) for (const p of t.players) if (KB.key(p.riotId) === key) p.role = role;
-		KB.rep.teams.value = teams;
-	}
-
-	// ---------- Messages ----------
-	function msg(el, text, cls = '') { el.textContent = text || ''; el.className = 'msg box ' + cls; }
-	const resultCls = (r) => (r.ok ? 'ok' : r.via === 'manual' ? 'info' : 'err');
-
-	// ---------- Extension ----------
-	const helpLink = '<a href="/valorant-tournament/tracker-extension" target="_blank">Guide d\'installation</a>';
-	let extOk = null;
-	let extDir = null;
-	async function checkExt() { $('extTxt').textContent = 'Recherche de l\'extension…'; extOk = await KBI.hasExtension(); renderExt(); }
-	function renderExt() {
-		$('extDot').className = 'dot' + (extOk ? ' on' : '');
-		$('extTxt').innerHTML = extOk
-			? `<b>Extension tracker.gg détectée</b>${KBI.extensionVersion() ? ' v' + esc(KBI.extensionVersion()) : ''} · import auto`
-			: extOk === false ? `<b>Extension non détectée</b> · import via le favori · ${helpLink}` : 'Recherche de l\'extension…';
-		$('extHelp').innerHTML = extOk
-			? `L'extension Chrome est active : les imports ouvrent tracker.gg en arrière-plan, récupèrent les stats et referment l'onglet. ${helpLink}`
-			: `<b>Import en 1 clic :</b> installe l'extension Chrome compagnon (dossier <code>${esc(extDir || 'tools/tracker-extension')}</code>, à charger en « non empaquetée » depuis <code>chrome://extensions</code>), puis recharge la régie. ${helpLink}. En attendant, utilise le favori ci-dessous.`;
-	}
-	fetch('/valorant-tournament/tracker-status').then((r) => r.json()).then((j) => { extDir = j.extension && j.extension.dir; renderExt(); }).catch(() => {});
-	$('extRetry').onclick = checkExt;
-	KBI.ready.then((v) => { extOk = v; renderExt(); });
-	window.addEventListener('message', (e) => { if (e.source === window && e.data && e.data.source === 'kb-tracker-ext' && e.data.type === 'hello' && !extOk) { extOk = true; renderExt(); } });
-	renderExt();
-
-	// ---------- Import ----------
-	const inFlight = new Set();
-	function runImport(key, riotId, msgEl) {
-		inFlight.add(key);
-		const p = KBI.request(riotId, { onStatus: (s) => msg(msgEl, `${riotId} : ${s.message}`, 'info') }); // dans le clic
-		if (extOk !== false) msg(msgEl, 'Import de ' + riotId + '…', 'info');
-		renderAll();
-		p.then((r) => msg(msgEl, r.message, resultCls(r))).finally(() => { inFlight.delete(key); renderAll(); });
-	}
-
-	// ================= Tableau des équipes =================
-	const addDrafts = {};      // texte des champs « + Ajouter » par colonne
-	let editTeam = null;       // { id: teamId | 'new', d: { name, tag, color, logo } }
-	let dragKey = null;
-	let dragFrom = null;
-	let pendingBoard = false;
-
-	function thumbHtml(p) {
-		if (p.photo) return `<div class="thumb"><img src="${esc(p.photo)}" alt=""></div>`;
-		const a = p.agents && p.agents[0];
-		if (a && a.icon) return `<div class="thumb"><img class="agent" src="${esc(a.icon)}" alt=""></div>`;
-		return `<div class="thumb">${esc(String(p.name || '?').slice(0, 1).toUpperCase())}</div>`;
-	}
-	function moveOptions(curCol) {
-		return `<option value="">Déplacer…</option>`
-			+ (curCol !== POOL ? `<option value="${POOL}">→ Sans équipe</option>` : '')
-			+ orderedTeams().filter((t) => t.id !== curCol).map((t) => `<option value="${esc(t.id)}">→ ${esc(t.name)}</option>`).join('');
-	}
-	function roleOptions(cur) {
-		const c = roleNorm(cur);
-		const extra = c && !ROLE_KEYS.includes(c) ? [c] : [];
-		return '<option value="">— Rôle —</option>' + [...ROLE_KEYS, ...extra].map((r) => `<option value="${esc(r)}" ${r === c ? 'selected' : ''}>${esc(KB.roleLabel(r))}</option>`).join('');
-	}
-	function cardHtml(key, colId, role) {
-		const p = KB.player(riotIdOf(key));
-		const prof = profVal()[key];
-		const man = isManual(key);
-		const date = prof && prof.fetchedAt ? new Date(prof.fetchedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-		const sub = inFlight.has(key) ? 'Import en cours…' : [p.rank && p.rank.name, p.realName].filter(Boolean).join(' · ') || (prof ? 'Importé' : 'Pas encore importé');
-		return `<div class="pcard${key === sel ? ' sel' : ''}" draggable="true" data-key="${esc(key)}" title="Glisser pour déplacer · clic pour ouvrir la fiche">
-			<div class="l1">${thumbHtml(p)}
-				<div class="info"><div class="nm">${esc(p.name)} <span>#${esc(p.tag)}</span></div><div class="sub">${esc(sub)}</div></div>
-				${p.rank && p.rank.icon ? `<img class="rk" src="${esc(p.rank.icon)}" alt="" title="${esc(p.rank.name)}">` : ''}
-				<div class="pills"><span class="pill ${prof ? 'trk' : 'off'}" title="${prof ? 'Importé de tracker.gg le ' + esc(date) : 'Pas de données tracker.gg'}">TRK</span><span class="pill ${man ? 'man' : 'off'}" title="${man ? 'Données saisies à la main' : 'Aucune donnée manuelle'}">MAN</span></div>
-			</div>
-			<div class="l2">
-				${colId !== POOL ? `<select data-role="${esc(key)}" title="Rôle">${roleOptions(role)}</select>` : ''}
-				<select class="move" data-move="${esc(key)}" title="Déplacer vers une autre équipe">${moveOptions(colId)}</select>
-			</div>
-		</div>`;
-	}
-	function teamFormHtml(id) {
-		const d = editTeam.d;
-		const assets = logoAssets.value || [];
-		const isAsset = assets.some((a) => a.url === d.logo);
-		const prev = d.logo ? `<img src="${esc(d.logo)}" alt="">` : KB.teamLogo({ name: d.name, tag: d.tag, color: d.color }, 34);
-		return `<div class="tform" data-form="${esc(id)}">
-			<div class="r"><input data-tf="name" value="${esc(d.name)}" placeholder="Nom de l'équipe"><input data-tf="tag" value="${esc(d.tag)}" maxlength="6" placeholder="TAG"><input type="color" data-tf="color" value="${esc(d.color || '#3b8fe6')}" title="Couleur"></div>
-			<div class="lg"><div class="lgp">${prev}</div>
-				<div><select data-tf="logoAsset"><option value="">${assets.length ? 'Logo : aucun / URL' : 'Aucun logo dans les assets'}</option>${assets.map((a) => `<option value="${esc(a.url)}" ${a.url === d.logo ? 'selected' : ''}>${esc(a.base || a.name)}</option>`).join('')}</select>
-				<input data-tf="logo" value="${esc(isAsset ? '' : d.logo)}" placeholder="ou URL du logo (vide = monogramme)" style="margin-top:4px"></div></div>
-			<div class="btns"><button class="primary" data-tsave>${id === 'new' ? 'Créer l\'équipe' : 'Enregistrer'}</button><button data-tcancel>Annuler</button><span class="sp"></span>
-				${id !== 'new' ? '<button class="danger" data-tdel>Supprimer</button>' : ''}</div>
-		</div>`;
-	}
-	function colHtml(t) {
-		const isPool = !t;
-		const colId = isPool ? POOL : t.id;
-		let keys, roles = {};
-		if (isPool) {
-			const inTeam = new Set();
-			for (const tt of Object.values(teamsVal())) for (const p of playersOf(tt)) inTeam.add(KB.key(p.riotId));
-			keys = [...allKeys()].filter((k) => !inTeam.has(k)).sort((a, b) => a.localeCompare(b));
-		} else {
-			const ps = playersOf(t);
-			keys = ps.map((p) => KB.key(p.riotId));
-			ps.forEach((p) => { roles[KB.key(p.riotId)] = p.role; });
-		}
-		const m = KB.rep.match.value || {};
-		const side = !isPool && (t.id === m.teamA ? 'A' : t.id === m.teamB ? 'B' : '');
-		const n = keys.length;
-		const head = isPool
-			? `<div class="thead"><div class="tinfo"><div class="tname">Sans équipe</div><div class="tsub">Vivier · ${n} joueur${n > 1 ? 's' : ''} à placer</div></div></div>`
-			: `<div class="thead" data-edit="${esc(t.id)}" title="Modifier l'équipe">${KB.teamLogo(t, 34)}
-				<div class="tinfo"><div class="tname">${esc(t.name)}</div><div class="tsub">${esc(t.tag || '—')}${side ? ` · <b>Match ${side}</b>` : ''}${n > STARTERS ? ` · ${n - STARTERS} rempl.` : ''}</div></div>
-				<span class="count ${n >= STARTERS ? 'full' : 'low'}" title="${n >= STARTERS ? 'Équipe complète' : 'Moins de 5 titulaires'}">${Math.min(n, STARTERS)}/${STARTERS}</span><span class="edit-ico">✎</span></div>`;
-		let body = '';
-		keys.forEach((k, i) => {
-			if (!isPool && i === STARTERS) body += '<div class="subsep">Remplaçants</div>';
-			body += cardHtml(k, colId, roles[k]);
-		});
-		if (!isPool) for (let i = n; i < STARTERS; i++) body += `<div class="slot">Titulaire ${i + 1} · libre</div>`;
-		if (isPool && !n) body += '<div class="pool-empty">Tous les joueurs sont dans une équipe.</div>';
-		const form = editTeam && !isPool && editTeam.id === t.id ? teamFormHtml(t.id) : '';
-		return `<div class="tcol${isPool ? ' pool' : ''}" data-col="${esc(colId)}" style="--c:${isPool ? 'var(--muted)' : esc(t.color || '#3b8fe6')}">
-			${head}${form}
-			<div class="tbody">${body}</div>
-			<div class="tadd"><input data-addin="${esc(colId)}" value="${esc(addDrafts[colId] || '')}" placeholder="+ Pseudo#TAG ou lien tracker.gg"><button data-addbtn="${esc(colId)}" title="Ajouter${isPool ? '' : ' à cette équipe'} et importer depuis tracker.gg">+</button></div>
-		</div>`;
-	}
-	function renderBoard() {
-		const a = document.activeElement;
-		if (dragKey || (a && $('board').contains(a) && /INPUT|SELECT/.test(a.tagName))) { pendingBoard = true; return; }
-		pendingBoard = false;
-		const cols = [colHtml(null), ...orderedTeams().map(colHtml)];
-		cols.push(editTeam && editTeam.id === 'new'
-			? `<div class="tcol" style="--c:${esc(editTeam.d.color)}"><div class="thead"><div class="tinfo"><div class="tname">Nouvelle équipe</div><div class="tsub">Nom, tag, couleur, logo</div></div></div>${teamFormHtml('new')}</div>`
-			: '<button class="newcol" id="newTeam">+ Nouvelle équipe</button>');
-		$('board').innerHTML = cols.join('');
-	}
-	$('board').addEventListener('focusout', () => setTimeout(() => { if (pendingBoard) renderBoard(); }, 0));
-
-	// --- Équipes : création / édition / suppression
-	const slug = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
-	function openTeamForm(id) {
-		const t = id !== 'new' && KB.team(id);
-		editTeam = { id, d: t ? { name: t.name || '', tag: t.tag || '', color: t.color || '#3b8fe6', logo: t.logo || '' } : { name: '', tag: '', color: '#3b8fe6', logo: '' } };
-		renderBoard();
-		const f = document.querySelector(`[data-form="${CSS.escape(id)}"] [data-tf="name"]`);
-		if (f) f.focus();
-	}
-	function saveTeam() {
-		const d = editTeam.d;
-		const name = d.name.trim();
-		if (!name) return msg($('boardMsg'), 'Le nom de l\'équipe est obligatoire.', 'err');
-		const teams = teamsCopy();
-		let id = editTeam.id;
-		if (id === 'new') {
-			const base = slug(d.tag) || slug(name) || 'team';
-			id = base; let k = 2;
-			while (teams[id]) id = base + '-' + k++;
-			teams[id] = { id, name, tag: d.tag.trim(), color: d.color, logo: d.logo.trim(), players: [] };
-		} else {
-			teams[id] = { ...teams[id], name, tag: d.tag.trim(), color: d.color, logo: d.logo.trim() };
-		}
-		editTeam = null;
-		if (document.activeElement) document.activeElement.blur();
-		KB.rep.teams.value = teams;
-		msg($('boardMsg'), `Équipe « ${name} » enregistrée.`, 'ok');
-	}
-	function deleteTeam(id) {
-		const teams = teamsCopy();
-		const t = teams[id];
-		if (!t) return;
-		keepInPool(t.players.map((p) => KB.key(p.riotId)));
-		delete teams[id];
-		editTeam = null;
-		KB.rep.teams.value = teams;
-		const m = KB.rep.match.value;
-		if (m && (m.teamA === id || m.teamB === id)) KB.rep.match.value = { ...clone(m), teamA: m.teamA === id ? null : m.teamA, teamB: m.teamB === id ? null : m.teamB };
-		msg($('boardMsg'), `Équipe « ${t.name} » supprimée : ses ${t.players.length} joueur(s) sont dans « Sans équipe ».`, 'ok');
-	}
-
-	// --- Ajout d'un joueur dans une colonne
-	function addToColumn(colId) {
-		const input = document.querySelector(`[data-addin="${CSS.escape(colId)}"]`);
-		const raw = input ? input.value : addDrafts[colId];
-		const riotId = KBI.parseRiotId(raw);
-		if (!riotId) return msg($('boardMsg'), 'Format attendu : Pseudo#TAG ou lien tracker.gg', 'err');
-		const key = KB.key(riotId);
-		const cur = KB.teamOf(riotId);
-		const inThis = colId !== POOL && playersOf(KB.team(colId)).some((p) => KB.key(p.riotId) === key);
-		addDrafts[colId] = '';
-		if (input) { input.value = ''; input.blur(); }
-		if (!dataVal()[key] && !profVal()[key]) writeData(key, (e) => { e.riotId = riotId; });
-		if (colId !== POOL && !inThis) moveTo(key, null, colId); // ajout : ne le retire pas d'une autre équipe
-		sel = key;
-		try { localStorage.setItem('kbPlayersSel', key); } catch { /* ignore */ }
-		const t = KB.team(colId);
-		const where = colId === POOL ? '« Sans équipe »' : `« ${t ? t.name : colId} »`;
-		msg($('boardMsg'), inThis ? `${riotId} est déjà dans ${where} : import relancé.` : colId === POOL && cur ? `${riotId} est déjà dans « ${cur.team.name} » : import relancé.` : `${riotId} ajouté dans ${where}.`, 'ok');
-		runImport(key, riotId, $('boardMsg')); // dans le clic / Entrée : ouverture d'onglet autorisée
-	}
-
-	// --- Événements du tableau
-	$('board').addEventListener('click', (e) => {
-		if (e.target.closest('#newTeam')) { openTeamForm('new'); return; }
-		const addBtn = e.target.closest('[data-addbtn]');
-		if (addBtn) { addToColumn(addBtn.dataset.addbtn); return; }
-		if (e.target.closest('[data-tsave]')) { saveTeam(); return; }
-		if (e.target.closest('[data-tcancel]')) { editTeam = null; if (document.activeElement) document.activeElement.blur(); renderBoard(); return; }
-		const del = e.target.closest('[data-tdel]');
-		if (del) {
-			if (del.classList.contains('armed')) { deleteTeam(editTeam.id); return; }
-			del.classList.add('armed'); del.textContent = 'Confirmer la suppression';
-			setTimeout(() => { del.classList.remove('armed'); del.textContent = 'Supprimer'; }, 4000);
-			return;
-		}
-		const head = e.target.closest('[data-edit]');
-		if (head) { if (editTeam && editTeam.id === head.dataset.edit) { editTeam = null; renderBoard(); } else openTeamForm(head.dataset.edit); return; }
-		if (e.target.closest('select, input, button')) return;
-		const card = e.target.closest('.pcard');
-		if (card) { select(card.dataset.key); $('sheetWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-	});
-	$('board').addEventListener('input', (e) => {
-		const t = e.target;
-		if (t.dataset.addin) addDrafts[t.dataset.addin] = t.value;
-		if (t.dataset.tf && editTeam) {
-			if (t.dataset.tf === 'logoAsset') { editTeam.d.logo = t.value; const u = t.closest('.tform').querySelector('[data-tf="logo"]'); if (u) u.value = ''; }
-			else editTeam.d[t.dataset.tf] = t.value;
-			if (t.dataset.tf === 'logo' && t.value) { const s = t.closest('.tform').querySelector('[data-tf="logoAsset"]'); if (s) s.value = ''; }
-			const lp = t.closest('.tform').querySelector('.lgp');
-			const d = editTeam.d;
-			if (lp) lp.innerHTML = d.logo ? `<img src="${esc(d.logo)}" alt="">` : KB.teamLogo({ name: d.name, tag: d.tag, color: d.color }, 34);
-		}
-	});
-	$('board').addEventListener('change', (e) => {
-		const t = e.target;
-		if (t.dataset.role) { setRole(t.dataset.role, t.closest('[data-col]').dataset.col, t.value); t.blur(); }
-		if (t.dataset.move) {
-			const to = t.value;
-			if (!to) return;
-			t.blur();
-			moveTo(t.dataset.move, t.closest('[data-col]').dataset.col, to);
-			const team = KB.team(to);
-			msg($('boardMsg'), `${riotIdOf(t.dataset.move)} → ${to === POOL ? 'Sans équipe' : team ? team.name : to}`, 'ok');
-		}
-	});
-	$('board').addEventListener('keydown', (e) => {
-		if (e.key === 'Escape' && editTeam && e.target.dataset.tf) { editTeam = null; e.target.blur(); renderBoard(); return; }
-		if (e.key !== 'Enter') return;
-		if (e.target.dataset.addin) { e.preventDefault(); addToColumn(e.target.dataset.addin); }
-		else if (e.target.dataset.tf) { e.preventDefault(); saveTeam(); }
-	});
-
-	// --- Glisser-déposer
-	const clearDrop = () => { document.querySelectorAll('.drop-line').forEach((x) => x.remove()); document.querySelectorAll('.drop-on').forEach((x) => x.classList.remove('drop-on')); };
-	/** Index d'insertion dans la colonne (hors carte déplacée) selon la position verticale */
-	function dropIndex(col, y) {
-		const cards = [...col.querySelectorAll('.tbody .pcard')].filter((c) => c.dataset.key !== dragKey);
-		let i = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
-		if (i < 0) i = cards.length;
-		return { i, cards };
-	}
-	$('board').addEventListener('dragstart', (e) => {
-		const c = e.target.closest && e.target.closest('.pcard');
-		if (!c) return;
-		dragKey = c.dataset.key;
-		dragFrom = c.closest('[data-col]').dataset.col;
-		e.dataTransfer.effectAllowed = 'move';
-		e.dataTransfer.setData('text/plain', riotIdOf(dragKey));
-		requestAnimationFrame(() => c.classList.add('dragging'));
-	});
-	$('board').addEventListener('dragover', (e) => {
-		const col = e.target.closest('[data-col]');
-		if (!col || !dragKey) return;
-		e.preventDefault();
-		e.dataTransfer.dropEffect = 'move';
-		clearDrop();
-		col.classList.add('drop-on');
-		if (col.dataset.col === POOL) return; // ordre alphabétique dans le vivier
-		const { i, cards } = dropIndex(col, e.clientY);
-		const line = document.createElement('div');
-		line.className = 'drop-line';
-		if (cards[i]) cards[i].before(line); else {
-			const body = col.querySelector('.tbody');
-			const slot = body.querySelector('.slot');
-			if (slot) slot.before(line); else body.appendChild(line);
-		}
-	});
-	$('board').addEventListener('dragleave', (e) => { if (!$('board').contains(e.relatedTarget)) clearDrop(); });
-	$('board').addEventListener('drop', (e) => {
-		const col = e.target.closest('[data-col]');
-		if (!col || !dragKey) return;
-		e.preventDefault();
-		const key = dragKey;
-		const { i } = dropIndex(col, e.clientY);
-		const to = col.dataset.col;
-		const from = dragFrom;
-		dragKey = null;
-		clearDrop();
-		moveTo(key, from, to, i);
-		const team = KB.team(to);
-		if (from !== to) msg($('boardMsg'), `${riotIdOf(key)} → ${to === POOL ? 'Sans équipe' : team ? team.name : to}`, 'ok');
-	});
-	$('board').addEventListener('dragend', () => { dragKey = null; clearDrop(); document.querySelectorAll('.dragging').forEach((x) => x.classList.remove('dragging')); if (pendingBoard) renderBoard(); });
-
-	// ================= Fiche joueur =================
-	function select(key) {
-		sel = key;
-		try { localStorage.setItem('kbPlayersSel', key || ''); } catch { /* ignore */ }
-		$('tiers').hidden = true;
-		msg($('sheetMsg'), '');
-		renderAll();
-	}
-	$('backTop').onclick = (e) => { e.preventDefault(); $('top').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-	/** N'écrase jamais un champ en cours de saisie */
-	const setVal = (el, v) => { if (document.activeElement !== el) el.value = v == null ? '' : v; };
-
-	function fillTeamSelect(selEl, current) {
-		if (document.activeElement === selEl) return;
-		const m = KB.rep.match.value || {};
-		selEl.innerHTML = `<option value="${NO_TEAM}">Sans équipe</option>`
-			+ orderedTeams().map((t) => `<option value="${esc(t.id)}">${esc(t.name)}${t.id === m.teamA || t.id === m.teamB ? ' · match' : ''} (${playersOf(t).length})</option>`).join('');
-		selEl.value = current != null && [...selEl.options].some((o) => o.value === current) ? current : NO_TEAM;
-	}
-	$('stats').innerHTML = STATS.map(([k, l]) => `<div><div class="lbl">${esc(l)}</div><input data-stat="${k}" inputmode="decimal"></div>`).join('');
-	$('agents').innerHTML = [0, 1, 2].map((i) => `<div><div class="lbl">Agent ${i + 1}</div><div class="agent-sel"><span class="ph" data-aimg="${i}"></span><select data-agent="${i}"></select></div></div>`).join('');
-
-	function rankBoxHtml(kind, eff, ov) {
-		const manual = !!(ov && ov.name);
-		return `<div class="rank-field${manual ? ' ov' : ''}">
-			${eff && eff.icon ? `<img src="${esc(eff.icon)}" alt="">` : '<span class="noicon">–</span>'}
-			<div class="rn">${esc((eff && eff.name) || 'Aucun')}<small>${manual ? 'Saisi à la main' : eff ? 'tracker.gg' : 'Pas de donnée'}</small></div>
-			<button data-pick="${kind}">Choisir…</button>
-			${manual ? `<button data-auto="${kind}" title="Revenir à la valeur tracker.gg">Auto</button>` : ''}
-		</div>
-		<input data-ranktext="${kind}" placeholder="ou texte libre (ex. Immortal 2)" style="margin-top:4px" value="${esc(manual && !findTier(ov.name) ? ov.name : '')}">`;
-	}
-	let pickKind = 'rank';
-	function renderTiers(curName) {
-		const btn = (t) => `<button class="tier${t.name === curName ? ' cur' : ''}" data-tier="${t.n}" title="${esc(t.fr)} (${esc(t.name)})"><img src="${TIER_ICON(t.n)}" alt="${esc(t.name)}"></button>`;
-		$('tiers').innerHTML = `<div class="lbl" style="grid-column:1/-1;margin-top:0">Choisir le ${pickKind === 'rank' ? 'rang actuel' : 'peak'}</div>`
-			+ FAMILIES.map(([, fr], i) => `<div class="fam"><span class="fl">${esc(fr)}</span>${TIERS.filter((t) => t.fam === i).map(btn).join('')}</div>`).join('')
-			+ `<div class="fam"><span class="fl">Radiant</span>${btn(TIERS[TIERS.length - 1])}</div>`
-			+ `<div class="fam"><span class="fl">Non classé</span>${btn(TIERS[0])}</div>`;
-	}
-
-	function renderSheet() {
-		const has = !!sel && allKeys().has(sel);
-		$('sheet').hidden = !has;
-		$('noSel').hidden = has;
-		if (!has) return;
-		const key = sel;
-		const rid = riotIdOf(key);
-		const p = KB.player(rid);
-		const d = dataVal()[key] || {};
-		const ov = d.overrides || {};
-		const prof = profVal()[key];
-
-		$('photoPrev').innerHTML = d.photo ? `<img src="${esc(d.photo)}" alt="">` : '<span>Aucune photo</span>';
-		$('hName').innerHTML = `${esc(p.name)} <span>#${esc(p.tag)}</span>`;
-		const tAll = orderedTeams().filter((t) => playersOf(t).some((x) => KB.key(x.riotId) === key));
-		$('hSub').textContent = [tAll.length ? tAll.map((t) => t.name).join(' + ') : 'Sans équipe', KB.roleLabel(p.role), p.realName].filter(Boolean).join(' · ');
-		$('hTracker').innerHTML = prof
-			? `<span style="color:var(--ok)">● tracker.gg</span> importé le ${esc(new Date(prof.fetchedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}${prof.season ? ' · ' + esc(prof.season) : ''}${prof.stats && prof.stats.matches && prof.stats.matches.display ? ' · ' + esc(prof.stats.matches.display) + ' matchs' : ''}`
-			: '<span style="color:var(--gold)">● Pas encore importé de tracker.gg</span> · tout peut être saisi à la main';
-		$('importOne').disabled = inFlight.has(key);
-		$('importOne').textContent = inFlight.has(key) ? 'Import en cours…' : prof ? 'Actualiser depuis tracker.gg' : 'Importer depuis tracker.gg';
-		$('apiLink').href = KBI.apiUrl(rid);
-
-		setVal($('fDisplay'), d.displayName || '');
-		$('fDisplay').placeholder = (prof && prof.name) || rid.split('#')[0];
-		$('fDisplay').classList.toggle('ov', !!d.displayName);
-		setVal($('fReal'), d.realName || '');
-		setVal($('fRiot'), rid);
-		fillTeamSelect($('fTeam'), p.team ? p.team.id : NO_TEAM);
-		if (document.activeElement !== $('fRole')) $('fRole').innerHTML = roleOptions(p.role);
-		$('fRole').disabled = !p.team;
-		$('fRole').title = p.team ? '' : 'Place d\'abord le joueur dans une équipe';
-
-		const assets = photoAssets.value || [];
-		const ps = $('fPhotoAsset');
-		if (document.activeElement !== ps) {
-			ps.innerHTML = `<option value="">${assets.length ? '— Choisir une photo —' : 'Aucune photo dans les assets'}</option>`
-				+ assets.map((a) => `<option value="${esc(a.url)}">${esc(a.base || a.name)}</option>`).join('');
-			ps.value = d.photo && assets.some((a) => a.url === d.photo) ? d.photo : '';
-			ps.classList.toggle('ov', !!ps.value);
-		}
-		setVal($('fPhotoUrl'), d.photo && !assets.some((a) => a.url === d.photo) ? d.photo : '');
-		$('photoClear').disabled = !d.photo;
-
-		const ae = document.activeElement;
-		if (!(ae && ae.dataset && ae.dataset.ranktext === 'rank')) $('rankBox').innerHTML = rankBoxHtml('rank', p.rank, ov.rank);
-		if (!(ae && ae.dataset && ae.dataset.ranktext === 'peak')) $('peakBox').innerHTML = rankBoxHtml('peak', p.peak, ov.peak);
-		if (!$('tiers').hidden) renderTiers(((pickKind === 'rank' ? p.rank : p.peak) || {}).name);
-
-		for (const inp of document.querySelectorAll('[data-stat]')) {
-			const k = inp.dataset.stat;
-			const tr = prof && prof.stats && prof.stats[k];
-			const v = ov.stats && ov.stats[k];
-			setVal(inp, v || '');
-			inp.placeholder = (tr && tr.display) || '–';
-			inp.classList.toggle('ov', v !== undefined && v !== '');
-			inp.title = tr && tr.display ? 'tracker.gg : ' + tr.display : 'Pas de valeur tracker.gg';
-		}
-
-		const names = Object.keys((KB.rep.valorantData.value && KB.rep.valorantData.value.agents) || {}).sort((a, b) => a.localeCompare(b));
-		const trTop = ((prof && prof.agents) || []).map((a) => a.name);
-		for (const s of document.querySelectorAll('[data-agent]')) {
-			const i = +s.dataset.agent;
-			const cur = (ov.agents || [])[i] || '';
-			if (document.activeElement !== s) {
-				const opts = !cur || names.includes(cur) ? names : [cur, ...names];
-				s.innerHTML = `<option value="">Auto${trTop[i] ? ' · ' + esc(trTop[i]) : ''}</option>` + opts.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-				s.value = cur;
-			}
-			s.classList.toggle('ov', !!cur);
-			const shown = cur || trTop[i];
-			const info = shown && KB.agentInfo(shown);
-			const slot = document.querySelector(`[data-aimg="${i}"]`);
-			slot.outerHTML = info && info.icon ? `<img data-aimg="${i}" src="${esc(info.icon)}" alt="" title="${esc(shown)}">` : `<span class="ph" data-aimg="${i}"></span>`;
-		}
-		$('resetTracker').disabled = !hasOverrides(ov);
-	}
-
-	for (const id of ['fDisplay', 'fReal']) $(id).onchange = (e) => { if (sel) writeData(sel, (d) => { d[e.target.dataset.field] = e.target.value.trim(); }); };
-	$('fRiot').onchange = (e) => {
-		if (!sel) return;
-		const nid = KBI.parseRiotId(e.target.value);
-		if (!nid) { msg($('sheetMsg'), 'Riot ID invalide (format Pseudo#TAG).', 'err'); e.target.value = riotIdOf(sel); return; }
-		if (nid !== riotIdOf(sel)) renameKey(sel, nid);
-	};
-	function renameKey(key, nid) {
-		const nkey = KB.key(nid);
-		if (nkey !== key && allKeys().has(nkey)) { msg($('sheetMsg'), `${nid} existe déjà dans la liste.`, 'err'); $('fRiot').value = riotIdOf(key); return; }
-		const teams = teamsCopy();
-		for (const t of Object.values(teams)) for (const p of t.players) if (KB.key(p.riotId) === key) p.riotId = nid;
-		KB.rep.teams.value = teams;
-		const all = clone(dataVal());
-		const e = all[key] || {};
-		delete all[key];
-		all[nkey] = { ...e, riotId: nid };
-		KB.rep.playerData.value = all;
-		if (nkey !== key) {
-			const m = clone(KB.rep.match.value);
-			let touched = false;
-			for (const mp of m.maps || []) if (mp.picks && mp.picks[key]) { mp.picks[nkey] = mp.picks[key]; delete mp.picks[key]; touched = true; }
-			if (touched) KB.rep.match.value = m;
-		}
-		select(nkey);
-		msg($('sheetMsg'), nkey !== key ? `Riot ID changé en ${nid}. Pense à (ré)importer ses stats tracker.gg.` : 'Riot ID mis à jour.', 'ok');
-	}
-	$('fTeam').onchange = (e) => { if (!sel) return; const p = KB.player(riotIdOf(sel)); moveTo(sel, p.team ? p.team.id : POOL, e.target.value || POOL); };
-	$('fRole').onchange = (e) => { if (!sel) return; const p = KB.player(riotIdOf(sel)); setRole(sel, p.team ? p.team.id : null, e.target.value); };
-	$('fPhotoAsset').onchange = (e) => { if (sel && e.target.value) writeData(sel, (d) => { d.photo = e.target.value; }); };
-	$('fPhotoUrl').onchange = (e) => { if (sel && e.target.value.trim()) writeData(sel, (d) => { d.photo = e.target.value.trim(); }); };
-	$('photoClear').onclick = () => { if (sel) writeData(sel, (d) => { d.photo = ''; }); };
-
-	$('sheet').addEventListener('change', (e) => {
-		const t = e.target;
-		if (!sel || !t.dataset) return;
-		if (t.dataset.stat) writeOv(sel, (ov) => { ov.stats = ov.stats || {}; ov.stats[t.dataset.stat] = t.value.trim(); });
-		if (t.dataset.agent != null) writeOv(sel, (ov) => { const a = [0, 1, 2].map((i) => (ov.agents || [])[i] || ''); a[+t.dataset.agent] = t.value; ov.agents = a; });
-		if (t.dataset.ranktext) {
-			const txt = t.value.trim();
-			const tier = findTier(txt);
-			writeOv(sel, (ov) => { ov[t.dataset.ranktext] = txt ? { name: tier ? tier.name : txt, icon: tier ? TIER_ICON(tier.n) : null } : null; });
-		}
-	});
-	$('sheet').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
-	$('sheet').addEventListener('click', (e) => {
-		const pick = e.target.closest('[data-pick]');
-		if (pick) {
-			const same = !$('tiers').hidden && pickKind === pick.dataset.pick;
-			pickKind = pick.dataset.pick;
-			$('tiers').hidden = same;
-			if (!same) { const p = KB.player(riotIdOf(sel)); renderTiers(((pickKind === 'rank' ? p.rank : p.peak) || {}).name); }
-			return;
-		}
-		const auto = e.target.closest('[data-auto]');
-		if (auto && sel) { writeOv(sel, (ov) => { ov[auto.dataset.auto] = null; }); return; }
-		const tier = e.target.closest('[data-tier]');
-		if (tier && sel) {
-			const t = TIERS.find((x) => x.n === +tier.dataset.tier);
-			writeOv(sel, (ov) => { ov[pickKind] = { name: t.name, icon: TIER_ICON(t.n) }; });
-			$('tiers').hidden = true;
-		}
-	});
-
-	$('importOne').onclick = () => { if (sel) runImport(sel, riotIdOf(sel), $('sheetMsg')); };
-	$('openTracker').onclick = () => { if (sel) window.open(KBI.trackerUrl(riotIdOf(sel)), '_blank'); };
-
-	function armed(btn, label, action) {
-		const orig = btn.textContent;
-		btn.onclick = () => {
-			if (btn.classList.contains('armed')) { clearTimeout(btn._t); btn.classList.remove('armed'); btn.textContent = orig; action(); return; }
-			btn.classList.add('armed');
-			btn.textContent = label;
-			btn._t = setTimeout(() => { btn.classList.remove('armed'); btn.textContent = orig; }, 4000);
-		};
-	}
-	armed($('resetTracker'), 'Confirmer : effacer rang, stats, agents manuels', () => {
-		if (!sel) return;
-		writeData(sel, (d) => { d.overrides = {}; });
-		msg($('sheetMsg'), 'Données manuelles effacées : la fiche reprend les valeurs tracker.gg.', 'ok');
-	});
-	armed($('delPlayer'), 'Confirmer : supprimer fiche + profil + équipe', () => {
-		if (!sel) return;
-		const key = sel;
-		const rid = riotIdOf(key);
-		const teams = teamsCopy();
-		if (detach(teams, key)) KB.rep.teams.value = teams;
-		if (dataVal()[key]) { const all = clone(dataVal()); delete all[key]; KB.rep.playerData.value = all; }
-		if (profVal()[key]) { const pr = clone(profVal()); delete pr[key]; KB.rep.playerProfiles.value = pr; }
-		select(null);
-		msg($('boardMsg'), `${rid} supprimé.`, 'ok');
-	});
-
-	// ---------- Aperçu fusionné (KB.player) ----------
-	function renderPreview() {
-		if (!sel || !allKeys().has(sel)) { $('preview').innerHTML = '<div class="empty">Aucun joueur sélectionné.</div>'; return; }
-		const p = KB.player(riotIdOf(sel));
-		const ov = ovOf(sel);
-		const statCell = ([k, l]) => { const s = p.stats[k]; return `<div class="pv-stat${s && s.manual ? ' m' : ''}"><small>${esc(l)}</small><b>${esc((s && s.display) || '–')}</b></div>`; };
-		const rk = (r, l, m) => `<span class="${m ? 'm' : ''}">${r && r.icon ? `<img src="${esc(r.icon)}" alt="">` : ''}<span><small>${l}</small>${esc((r && r.name) || '–')}</span></span>`;
-		const bust = p.agents[0] && p.agents[0].bust;
-		$('preview').innerHTML = `<div class="preview" style="--c:${esc((p.team && p.team.color) || 'var(--line)')}">
-			<div class="pv-photo">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : bust ? `<img src="${esc(bust)}" alt="" style="opacity:.5" title="Pas de photo : agent principal">` : '<span>Pas de photo</span>'}</div>
-			<div class="pv-main">
-				<div class="pv-name">${esc(p.name)} <span>#${esc(p.tag)}</span></div>
-				<div class="pv-meta">${p.team ? `<b>${esc(p.team.name)}</b>` : 'Sans équipe'}${p.role ? ' · ' + esc(KB.roleLabel(p.role)) : ''}${p.realName ? ' · ' + esc(p.realName) : ''}${p.level ? ' · niveau ' + esc(p.level) : ''}${p.hasTracker ? '' : ' · <span style="color:var(--gold)">sans tracker.gg</span>'}</div>
-				<div class="pv-ranks">${rk(p.rank, 'Rang', ov.rank && ov.rank.name)}${rk(p.peak, 'Peak', ov.peak && ov.peak.name)}</div>
-				<div class="pv-stats">${STATS.map(statCell).join('')}</div>
-				<div class="pv-agents">${p.agents.length ? p.agents.slice(0, 3).map((a) => `<div class="pv-agent${a.manual ? ' m' : ''}" style="--ac:${esc(a.color || 'var(--line)')}">${a.icon ? `<img src="${esc(a.icon)}" alt="">` : ''}<span>${esc(a.name)}${a.matches ? ` <small>${esc(a.matches)} m.</small>` : ''}</span></div>`).join('') : '<span class="empty">Aucun agent</span>'}</div>
-			</div>
-		</div>`;
-	}
-
-	// ---------- Favori / JSON (secours) ----------
-	$('bookmarklet').href = KBI.bookmarklet();
-	$('bookmarklet').addEventListener('click', (e) => { e.preventDefault(); msg($('boardMsg'), 'Glisse le bouton dans ta barre de favoris, ne clique pas dessus ici.', 'info'); });
-	$('importJson').onclick = () => {
-		fetch('/valorant-tournament/tracker-import', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: $('json').value })
-			.then((r) => r.json())
-			.then((j) => { if (!j.ok) throw new Error(j.error); msg($('boardMsg'), '✔ ' + j.riotId + ' importé', 'ok'); $('json').value = ''; select(KB.key(j.riotId)); })
-			.catch((err) => msg($('boardMsg'), String(err.message || err), 'err'));
-	};
-
-	// ---------- Rendu ----------
-	function renderAll() {
-		const keys = allKeys();
-		if (sel && !keys.has(sel)) sel = null;
-		if (editTeam && editTeam.id !== 'new' && !KB.team(editTeam.id)) editTeam = null;
-		renderBoard();
-		renderSheet();
-		renderPreview();
-	}
-	KB.watch(['teams', 'playerData', 'playerProfiles', 'valorantData', 'match', photoAssets, logoAssets], renderAll);
-})();
-</script>
+<script src="../shared/dash.js"></script>
+<script src="players/data.js"></script>
+<script src="players/board.js"></script>
+<script src="players/sheet.js"></script>
+<script src="players/preview.js"></script>
+<script src="players/main.js"></script>
 </body>
 </html>

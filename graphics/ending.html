@@ -2,7 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
-	<title>KB SERIES — Fin du stream</title>
+	<title>KB SERIES · Fin du stream</title>
+	<!--
+		Scène plein écran « Fin du stream » : remerciements, résultats du jour (matchs terminés du planning), prochain rendez-vous.
+		Replicants lus : tournament, teams, schedule, scenesTexts.
+		Pilotée par la régie (scène de fond de stream.html) et le panneau Écrans (dashboard/scenes.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/scenes.css">
 	<style>
@@ -103,12 +108,12 @@
 			const a = KB.team(r.teamA), b = KB.team(r.teamB);
 			const sa = Number(r.scoreA) || 0, sb = Number(r.scoreB) || 0;
 			const wa = sa > sb, wb = sb > sa;
-			const side = (team, win, lose, cls) => `<div class="tm ${cls} ${lose ? 'lose' : ''}"><div class="sc-logo">${KB.teamLogo(team, 52)}</div><div class="nm">${esc(S.teamName(team))}</div></div>`;
+			const side = (team, lose, cls) => `<div class="tm ${cls} ${lose ? 'lose' : ''}"><div class="sc-logo">${KB.teamLogo(team, 52)}</div><div class="nm">${esc(S.teamName(team))}</div></div>`;
 			return `<div class="res kb-panel ${anim ? 'kb-anim kb-anim--left' : ''}" style="--i:${6 + i}">
 				<div class="meta"><span class="time">${esc(r.time || '')}</span><span class="lbl">${esc(r.label || '')}</span></div>
-				${side(a, wa, wb, 'l')}
+				${side(a, wb, 'l')}
 				<div class="sc"><span class="${wa ? 'w' : wb ? 'l' : ''}">${sa}</span><i>–</i><span class="${wb ? 'w' : wa ? 'l' : ''}">${sb}</span></div>
-				${side(b, wb, wa, 'r')}
+				${side(b, wa, 'r')}
 			</div>`;
 		}
 
@@ -134,14 +139,14 @@
 			});
 			$('#empty').style.display = done.length ? 'none' : 'block';
 			$('#resHead').style.display = done.length ? '' : 'none';
-			S.fit($('#title'), 70, true);
-			KB.$$('.res .nm', box).forEach((el) => S.fit(el, 20, true));
+			KB.fit($('#title'), { min: 70 });
+			KB.$$('.res .nm', box).forEach((el) => KB.fit(el, { min: 20 }));
 			firstRender = false;
 		}
 
 		KB.watch(['tournament', 'teams', 'schedule', S.rep], render);
 		S.enter(stage);
-		document.fonts.ready.then(() => S.fit($('#title'), 70, true));
+		document.fonts.ready.then(() => KB.fit($('#title'), { min: 70 }));
 	</script>
 </body>
 </html>

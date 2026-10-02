@@ -3,25 +3,39 @@
 <head>
 	<meta charset="utf-8">
 	<title>Groupes — Classement</title>
+	<!--
+		Classement plein écran des groupes (V-D, rounds, différence), qualifiés en or ; les changements de score sont animés en place.
+		Replicants lus : bracket (groupes, nombre de qualifiés), bracketGraphics.groups.visible (défaut : KBB.GRAPHICS_DEFAULT,
+		shared/bracket.js), teams. Piloté par le panneau Bracket & Groupes (dashboard/bracket.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<style>
+		/* Affichage géré par KB.scene : .kb-in / .kb-out, puis .kb-settled une fois les entrées jouées */
 		#root { position: absolute; inset: 0; visibility: hidden; }
 		.fade { opacity: 0; }
 		.kb-in .fade { animation: gp-fade .6s ease forwards; animation-delay: var(--d, 0s); }
 		.kb-out .fade { animation: kb-fade-out .4s ease forwards !important; }
-		.settled .kb-anim, .settled .fade { animation: none !important; opacity: 1 !important; }
+		.kb-settled .kb-anim, .kb-settled .fade { animation: none !important; opacity: 1 !important; }
 		@keyframes gp-fade { to { opacity: 1; } }
 		.kb-bg__art { opacity: .32; animation: gp-drift 40s ease-in-out infinite alternate; }
 		@keyframes gp-drift { from { transform: scale(1.02); } to { transform: scale(1.07) translate(12px, -8px); } }
 
-		/* ---------- En-tête ---------- */
+		/* ---------- En-tête : bloc identique dans groups.html et bracket.html (garder les deux alignés) ---------- */
 		#head { position: absolute; left: 96px; right: 96px; top: 58px; height: 120px; display: flex; align-items: center; gap: 28px; }
 		#head .logoWrap { position: relative; width: 116px; height: 116px; flex: 0 0 auto; }
 		#head .logoWrap img { width: 116px; height: 116px; }
-		#head .logoWrap::after { content: ''; position: absolute; inset: -10px; border-radius: 50%; background: radial-gradient(circle, rgba(245, 196, 69, .28), transparent 65%); animation: gp-breathe 5s ease-in-out infinite; z-index: -1; }
-		@keyframes gp-breathe { 0%, 100% { opacity: .5; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
+		#head .logoWrap::after { content: ''; position: absolute; inset: -10px; border-radius: 50%; background: radial-gradient(circle, rgba(245, 196, 69, .28), transparent 65%); animation: head-breathe 5s ease-in-out infinite; z-index: -1; }
+		@keyframes head-breathe { 0%, 100% { opacity: .5; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
 		#head .txt { display: flex; flex-direction: column; gap: 6px; }
 		#head .kb-title { font-size: 78px; }
+		#headRule { position: absolute; left: 96px; right: 96px; top: 190px; overflow: hidden; }
+		.kb-in #headRule { animation: head-grow .9s var(--kb-ease-out) .3s both; }
+		.kb-settled #headRule { animation: none; }
+		.kb-out #headRule { animation: kb-fade-out .4s ease forwards; }
+		#headRule::after { content: ''; position: absolute; top: -4px; bottom: -4px; width: 220px; left: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); opacity: .8; transform: translateX(-260px); animation: head-sweep 7s ease-in-out 3s infinite; }
+		@keyframes head-sweep { 0% { transform: translateX(-260px); } 45%, 100% { transform: translateX(1990px); } }
+		@keyframes head-grow { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
+		/* Partie droite de l'en-tête : pictogramme + pastille */
 		#head .right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
 		#head .icon { width: 120px; height: 72px; filter: drop-shadow(0 0 14px rgba(245, 196, 69, .35)); }
 		#head .icon .mid { animation: gp-bob 4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom; }
@@ -29,21 +43,14 @@
 		#head .kb-pill { position: relative; overflow: hidden; }
 		#head .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-70px) skewX(-20deg); animation: gp-pill 6s ease-in-out 3s infinite; }
 		@keyframes gp-pill { 0% { transform: translateX(-70px) skewX(-20deg); } 30%, 100% { transform: translateX(200px) skewX(-20deg); } }
-		#headRule { position: absolute; left: 96px; right: 96px; top: 190px; overflow: hidden; }
-		.kb-in #headRule { animation: gp-grow .9s var(--kb-ease-out) .3s both; }
-		.settled #headRule { animation: none; }
-		.kb-out #headRule { animation: kb-fade-out .4s ease forwards; }
-		#headRule::after { content: ''; position: absolute; top: -4px; bottom: -4px; width: 220px; left: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent); opacity: .8; transform: translateX(-260px); animation: gp-sweepRule 7s ease-in-out 3s infinite; }
-		@keyframes gp-sweepRule { 0% { transform: translateX(-260px); } 45%, 100% { transform: translateX(1990px); } }
-		@keyframes gp-grow { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
 
 		/* ---------- Groupes ---------- */
 		#board { position: absolute; left: 96px; right: 96px; top: 222px; bottom: 120px; display: grid; gap: 28px 48px; align-content: center; }
 		.group { position: relative; display: flex; flex-direction: column; }
 		.ghead { position: relative; display: flex; align-items: flex-end; gap: 16px; padding: 0 6px 12px 2px; }
 		.ghead::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--kb-gold-hi), var(--kb-gold) 30%, var(--kb-gold-dim) 65%, transparent); transform-origin: left; }
-		.kb-in .ghead::after { animation: gp-grow .8s var(--kb-ease-out) both; animation-delay: calc(var(--d) + .15s); }
-		.settled .ghead::after { animation: none; }
+		.kb-in .ghead::after { animation: head-grow .8s var(--kb-ease-out) both; animation-delay: calc(var(--d) + .15s); }
+		.kb-settled .ghead::after { animation: none; }
 		.ghead .gname { font: 400 var(--gfs, 46px)/1 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; }
 		.ghead .q { margin-left: auto; font: 600 15px var(--kb-ui); letter-spacing: .24em; text-transform: uppercase; color: var(--kb-gold); padding-bottom: 4px; }
 		.cols, .grow { display: grid; grid-template-columns: var(--rkw, 64px) 1fr 120px 150px 110px; align-items: center; }
@@ -76,20 +83,20 @@
 
 		/* Qualifiés : or + reflet qui passe en vague */
 		.grow.qual { border-color: rgba(245, 196, 69, .45); background: linear-gradient(90deg, rgba(201, 178, 116, .22), rgba(27, 35, 102, .88) 35%, rgba(10, 15, 46, .9)); }
-		.grow.qual .rk { color: #1a1430; border-right-color: transparent; }
+		.grow.qual .rk { color: var(--kb-ink); border-right-color: transparent; }
 		.grow.qual .rk::before { transform: none; }
 		.kb-in .grow.qual .rk::before { animation: gp-fill .55s var(--kb-ease-out) both; animation-delay: var(--fd, 1s); }
-		.settled .grow.qual .rk::before, .settled .grow .rk::before { animation: none; }
+		.kb-settled .grow.qual .rk::before, .kb-settled .grow .rk::before { animation: none; }
 		@keyframes gp-fill { from { transform: scaleY(0); } to { transform: none; } }
 		.grow.qual.first { box-shadow: inset 0 0 0 1px var(--kb-gold-hi); }
-		.settled .grow.qual .shine { animation: gp-shine 9s ease-in-out infinite; animation-delay: var(--sd, 0s); }
+		.kb-settled .grow.qual .shine { animation: gp-shine 9s ease-in-out infinite; animation-delay: var(--sd, 0s); }
 		@keyframes gp-shine { 0% { transform: translateX(-100%); } 22%, 100% { transform: translateX(100%); } }
 		.grow > * { transition: opacity .6s; }
 		.grow.out > :not(.flash) { opacity: .5; }
 		.grow.out { border-color: rgba(94, 196, 255, .1); }
 		.cutline { position: relative; height: 0; margin: 6px 0 22px; border-top: 2px dashed rgba(201, 178, 116, .5); transform-origin: right; }
-		.kb-in .cutline { animation: gp-grow .7s var(--kb-ease-out) both; animation-delay: var(--cd, 1.4s); }
-		.settled .cutline { animation: none; }
+		.kb-in .cutline { animation: head-grow .7s var(--kb-ease-out) both; animation-delay: var(--cd, 1.4s); }
+		.kb-settled .cutline { animation: none; }
 		.cutline span { position: absolute; right: 0; top: 4px; padding: 0; font: 700 12px var(--kb-ui); letter-spacing: .26em; color: var(--kb-gold); text-transform: uppercase; }
 		.empty { padding: 30px 0; font: 600 18px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); text-transform: uppercase; text-align: center; border: 1px dashed rgba(140, 170, 255, .25); }
 
@@ -118,7 +125,7 @@
 		<div id="head">
 			<div class="logoWrap kb-anim kb-anim--pop" style="--d:.1s;--i:0"><img class="kb-logo" src="../shared/img/kbs-logo.png" alt=""></div>
 			<div class="txt">
-				<div class="kb-kicker kb-anim kb-anim--left" style="--d:.1s;--i:1">Phase de groupes · Online</div>
+				<div class="kb-kicker kb-anim kb-anim--left" style="--d:.1s;--i:1" id="kicker"></div>
 				<div class="kb-title kb-anim kb-anim--left" style="--d:.1s;--i:2">Classement</div>
 			</div>
 			<div class="right">
@@ -128,7 +135,7 @@
 					<g fill="#e9dcae"><circle cx="31" cy="19" r="8"/><path d="M18 56c0-15 6-23 13-23s13 8 13 23z"/><circle cx="69" cy="19" r="8"/><path d="M56 56c0-15 6-23 13-23s13 8 13 23z"/></g>
 					<g class="mid" fill="url(#gGrp)"><circle cx="50" cy="14" r="10"/><path d="M34 58c0-18 7-28 16-28s16 10 16 28z"/></g>
 				</svg>
-				<span class="kb-pill kb-anim kb-anim--right" style="--d:.1s;--i:3">Online</span>
+				<span class="kb-pill kb-anim kb-anim--right" style="--d:.1s;--i:3" id="pill"></span>
 			</div>
 		</div>
 		<div id="headRule" class="kb-rule kb-rule--gold"></div>
@@ -144,14 +151,18 @@
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/bracket.js"></script>
 	<script>
+		// Libellés fixes de l'en-tête (aucun replicant ne les contient)
+		const TEXTS = { kicker: 'Phase de groupes · Online', pill: 'Online' };
+
 		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
-		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: { groups: { visible: false }, bracket: { visible: false }, highlightLive: true } });
+		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: KB.clone(KBB.GRAPHICS_DEFAULT) });
 		const root = KB.$('#root');
 		const board = KB.$('#board');
-		const presence = KB.presence(root);
-		const restart = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
-		let settleTimer = null;
+		// Entrées jouées pendant 3 s ; ensuite (.kb-settled) les changements de données sont animés : pop, reclassement, reflet
+		const scene = KB.scene(root, { settleMs: 3000, outMs: 450 });
 		let animateChanges = false;
+		KB.$('#kicker').textContent = TEXTS.kicker;
+		KB.$('#pill').textContent = TEXTS.pill;
 		let layoutKey = '';
 		let L = {};   // paramètres de mise en page courants
 
@@ -185,7 +196,7 @@
 			v = String(v);
 			if (el.textContent === v) return;
 			el.textContent = v;
-			if (pop && animateChanges) restart(el.closest('.wl, .rd, .df, .rk b') || el, 'pop');
+			if (pop && animateChanges) KB.restart(el.closest('.wl, .rd, .df, .rk b') || el, 'pop');
 		}
 
 		function renderGroup(gEl, g, gi, qualify) {
@@ -218,7 +229,7 @@
 				el.style.setProperty('--i', (2 + i * 1.3).toFixed(1));
 				el.style.setProperty('--fd', (gd + .55 + i * .12).toFixed(2) + 's');
 				el.style.setProperty('--sd', (i * .45 + gi * .25).toFixed(2) + 's');
-				el.style.setProperty('--tc', (t && t.color) || '#3b8fe6');
+				el.style.setProperty('--tc', KB.teamColor(t));
 				el.classList.toggle('qual', q);
 				el.classList.toggle('out', !q && qualify > 0);
 				el.classList.toggle('first', q && i === 0);
@@ -239,7 +250,7 @@
 				const df = KB.$('.df', el);
 				setText(df, (r.diff > 0 ? '+' : '') + r.diff, pop);
 				df.className = 'df ' + (r.diff > 0 ? 'pos' : r.diff < 0 ? 'neg' : 'zero');
-				if (animateChanges && q && !wasQ && !isNew) restart(KB.$('.flash', el), 'go');
+				if (animateChanges && q && !wasQ && !isNew) KB.restart(KB.$('.flash', el), 'go');
 				order.push(el);
 			});
 			for (const el of existing.values()) el.remove();
@@ -273,6 +284,9 @@
 		}
 
 		function render() {
+			animateChanges = root.classList.contains('kb-settled');
+			// Pendant les entrées, une ligne apparue lors d'un précédent affichage reprend l'entrée normale
+			if (!animateChanges) KB.$$('.appear', board).forEach((e) => e.classList.remove('appear'));
 			const bk = bracketRep.value || KBB.defaultBracket();
 			const groups = (bk.groups || []).filter(Boolean);
 			const maxTeams = Math.max(1, ...groups.map((g) => ((g.teams || []).filter((t) => t && t.id)).length));
@@ -282,13 +296,8 @@
 			groups.forEach((g, gi) => { const gEl = KB.$(`.group[data-g="${gi}"]`, board); if (gEl) renderGroup(gEl, g, gi, qualify); });
 		}
 
-		function settle(ms) { clearTimeout(settleTimer); root.classList.remove('settled'); animateChanges = false; settleTimer = setTimeout(() => { root.classList.add('settled'); KB.$$('.appear', board).forEach((e) => e.classList.remove('appear')); animateChanges = true; }, ms); }
-
 		KB.watch(['teams', bracketRep, gfxRep], () => {
-			render();
-			const vis = !!(gfxRep.value && gfxRep.value.groups && gfxRep.value.groups.visible);
-			if (vis && !presence.visible) { settle(3000); presence.show(); }
-			else if (!vis && presence.visible) { clearTimeout(settleTimer); root.classList.remove('settled'); animateChanges = false; presence.hide(); }
+			scene.set(!!(gfxRep.value && gfxRep.value.groups && gfxRep.value.groups.visible), render);
 		});
 	</script>
 </body>

@@ -2,15 +2,29 @@
 <html lang="fr">
 <head>
 	<meta charset="utf-8">
+	<title>Maps &amp; Transitions</title>
+	<!--
+		Panneau Maps & Transitions : réglages du stinger (aperçu local, préréglages, export PNG), lancement de la transition
+		et écrans maps (intro, série, résultat + MVP). Écrit `mapsTransitionSettings`, `transition` (seuls les boutons « ▶ Transition »)
+		et `mapsGraphics` (map choisie, MVP ; visibilité via KBO). Message envoyé : `maps:exportStinger` (progression dans `mapsExport`).
+	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
 		.card h4 { margin: 0 0 6px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 		.card h4 .dot { margin-left: auto; }
 		.big { padding: 10px; font-size: 14px; }
 		.timing { display: flex; gap: 4px; margin-top: 8px; height: 10px; border-radius: 3px; overflow: hidden; background: var(--panel-2); position: relative; }
-		.timing i { position: absolute; top: 0; bottom: 0; background: var(--gold); opacity: .8; }
-		.timing b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; }
+		.timing i { position: absolute; top: 0; bottom: 0; left: var(--from, 0); width: var(--w, 0); background: var(--gold); opacity: .8; }
+		.timing b { position: absolute; top: -3px; bottom: -3px; left: var(--at, 0); width: 2px; background: #fff; }
+		.timing.hidden { display: none; }
+		#ex-fill { left: 0; width: 0; background: var(--blue); }
 		.mono { font-family: Consolas, monospace; color: var(--text); }
+		.warn { color: var(--red); }
+		.covered { color: var(--gold); }
+		h3 .hint { text-transform: none; letter-spacing: 0; }
+		.pv-opts { margin-top: 4px; }
+		.pv-auto { margin: 0; display: flex; gap: 4px; align-items: center; color: var(--muted); }
+		#mvp-team { width: 130px; }
 
 		/* Aperçu (toujours visible en haut) */
 		#pv-wrap { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-bottom: 6px; margin: -12px -12px 6px; padding: 12px 12px 8px; border-bottom: 1px solid var(--line); }
@@ -32,9 +46,6 @@
 		#pv-info b { color: var(--text); }
 
 		/* Réglages */
-		details.sec { margin-top: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; }
-		details.sec[open] { padding-bottom: 10px; }
-		details.sec > summary { padding: 9px 0; font: 700 12px 'Segoe UI', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
 		.f { display: grid; grid-template-columns: 1fr 78px; gap: 2px 8px; align-items: center; margin-top: 8px; }
 		.f > label { grid-column: 1 / -1; margin: 0; color: var(--text); font-weight: 600; font-size: 12px; }
 		.f > label span { color: var(--muted); font-weight: 400; }
@@ -64,12 +75,12 @@
 		<div class="pv-ctrl">
 			<button id="pv-play" title="Lire">▶</button>
 			<button id="pv-pause" title="Pause">⏸</button>
-			<div class="scrub"><div class="cov"><i id="pv-cov"></i><b id="pv-cut"></b></div><input type="range" id="pv-scrub" min="0" max="1000" value="0"></div>
+			<div class="scrub"><div class="cov"><i id="pv-cov"></i><b id="pv-cut"></b></div><input type="range" id="pv-scrub" min="0" max="1000" value="0" aria-label="Position dans l'aperçu"></div>
 			<span id="pv-time">0 / 0 ms</span>
 		</div>
-		<div class="row" style="margin-top:4px">
-			<select id="tr-mapsel" title="Map affichée pendant la transition (aperçu, test et antenne)"></select>
-			<label class="shrink" style="margin:0;display:flex;gap:4px;align-items:center;color:var(--muted)"><input type="checkbox" id="pv-auto" checked> relance auto</label>
+		<div class="row pv-opts">
+			<select id="tr-mapsel" title="Map affichée pendant la transition (aperçu, test et antenne)" aria-label="Map affichée pendant la transition"></select>
+			<label class="shrink pv-auto"><input type="checkbox" id="pv-auto" checked> relance auto</label>
 		</div>
 		<div id="pv-info"></div>
 	</div>
@@ -84,28 +95,28 @@
 		<div class="msg" id="tr-msg"></div>
 	</div>
 
-	<h3>Réglages de la transition <span class="hint" style="text-transform:none;letter-spacing:0">(enregistrés automatiquement)</span></h3>
-	<details class="sec" open>
+	<h3>Réglages de la transition <span class="hint">(enregistrés automatiquement)</span></h3>
+	<details class="fold" open>
 		<summary>Préréglages</summary>
 		<div class="presets" id="tr-presets"></div>
-		<div class="row"><input id="pr-name" placeholder="Nom de mon préréglage"><button class="shrink gold" id="pr-save">Enregistrer mes réglages</button></div>
+		<div class="row"><input id="pr-name" placeholder="Nom de mon préréglage" aria-label="Nom de mon préréglage"><button class="shrink gold" id="pr-save">Enregistrer mes réglages</button></div>
 		<div class="mine" id="pr-mine"></div>
 	</details>
-	<details class="sec" open>
+	<details class="fold" open>
 		<summary>Durées</summary>
 		<div id="sec-durees"></div>
 		<div class="tl" id="tl-logo"></div>
 		<div class="tl" id="tl-map"></div>
 	</details>
-	<details class="sec">
+	<details class="fold">
 		<summary>Volets</summary>
 		<div id="sec-volets"></div>
 	</details>
-	<details class="sec">
+	<details class="fold">
 		<summary>Logo</summary>
 		<div id="sec-logo"></div>
 	</details>
-	<details class="sec">
+	<details class="fold">
 		<summary>Map</summary>
 		<div id="sec-map"></div>
 	</details>
@@ -118,46 +129,49 @@
 			<button id="ex-logo">Exporter (logo)</button>
 			<button id="ex-map">Exporter + map choisie</button>
 		</div>
-		<div class="timing" id="ex-bar" style="display:none"><i id="ex-fill" style="left:0;width:0;background:var(--blue)"></i></div>
+		<div class="timing hidden" id="ex-bar"><i id="ex-fill"></i></div>
 		<div class="msg" id="ex-msg"></div>
 	</div>
 
 	<h3>Écrans maps</h3>
-	<div class="card">
-		<h4>Intro de map <span class="dot" id="dot-intro"></span></h4>
-		<label for="intro-index">Map</label>
-		<select id="intro-index"></select>
-		<div class="row"><button class="show" data-show="intro">AFFICHER</button><button class="danger" data-hide="intro">MASQUER</button></div>
-	</div>
-	<div class="card">
-		<h4>Maps de la série <span class="dot" id="dot-series"></span></h4>
-		<div class="hint">Toutes les maps de la série : statut, scores, picks.</div>
-		<div class="row"><button class="show" data-show="series">AFFICHER</button><button class="danger" data-hide="series">MASQUER</button></div>
-	</div>
-	<div class="card">
-		<h4>Résultat de map <span class="dot" id="dot-result"></span></h4>
-		<label for="result-index">Map</label>
-		<select id="result-index"></select>
-		<label for="result-mvp">MVP (joueur de l'équipe gagnante)</label>
-		<select id="result-mvp"></select>
-		<div class="row">
-			<input id="mvp-free" placeholder="…ou nom libre (ex : Pseudo)">
-			<select id="mvp-team" class="shrink" style="width:130px"></select>
-			<button class="shrink" id="mvp-free-ok">OK</button>
+	<div id="screens">
+		<div class="card">
+			<h4>Intro de map <span class="dot" data-ovdot="map-intro"></span></h4>
+			<label for="intro-index">Map</label>
+			<select id="intro-index"></select>
+			<div class="row" data-ovslot="map-intro"></div>
 		</div>
-		<div class="hint" id="mvp-hint"></div>
-		<div class="row"><button class="show" data-show="result">AFFICHER</button><button class="danger" data-hide="result">MASQUER</button></div>
+		<div class="card">
+			<h4>Maps de la série <span class="dot" data-ovdot="map-series"></span></h4>
+			<div class="hint">Toutes les maps de la série : statut, scores, picks.</div>
+			<div class="row" data-ovslot="map-series"></div>
+		</div>
+		<div class="card">
+			<h4>Résultat de map <span class="dot" data-ovdot="map-result"></span></h4>
+			<label for="result-index">Map</label>
+			<select id="result-index"></select>
+			<label for="result-mvp">MVP (joueur de l'équipe gagnante)</label>
+			<select id="result-mvp"></select>
+			<div class="row">
+				<input id="mvp-free" placeholder="…ou nom libre (ex : Pseudo)" aria-label="MVP : nom libre">
+				<select id="mvp-team" class="shrink" aria-label="Équipe du MVP (nom libre)"></select>
+				<button class="shrink" id="mvp-free-ok">OK</button>
+			</div>
+			<div class="hint" id="mvp-hint"></div>
+			<div class="row" data-ovslot="map-result"></div>
+		</div>
+		<div class="row"><button class="danger" id="hide-all" title="Masque l'intro, la série et le résultat de map">Tout masquer</button></div>
 	</div>
-	<div class="row"><button class="danger" id="hide-all">Tout masquer</button></div>
 
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/maps.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlays.js"></script>
 	<script>
-		const $ = (s) => document.querySelector(s);
+		const $ = KB.$, esc = KB.esc;
 		const gfx = KBM.rep();
-		const esc = KB.esc;
 		const trRep = KBM.trRep();
-		let T = KBM.STINGER;
+		const flash = (text) => KBD.flash('tr-msg', text);
 
 		// =====================================================================
 		// Réglages de la transition (replicant mapsTransitionSettings) + aperçu local
@@ -193,9 +207,9 @@
 		function field([k, label, help, unit]) {
 			const sc = KBM.TRANSITION_SCHEMA[k];
 			if (sc.bool) return `<div class="f bool"><input type="checkbox" id="c-${k}"><label for="c-${k}">${label}</label></div>`;
-			if (sc.values) return `<div class="f"><label>${label}</label><select id="c-${k}">${sc.values.map((v) => `<option value="${v}">${esc((LABELS[k] || {})[v] || v)}</option>`).join('')}</select></div>`;
-			return `<div class="f"><label>${label}${help || unit ? ` <span>— ${help || ''}${unit ? ` (${unit})` : ''}</span>` : ''}</label>
-				<input type="range" id="r-${k}" min="${sc.min}" max="${sc.max}" step="${sc.step}"><input type="number" id="c-${k}" min="${sc.min}" max="${sc.max}" step="${sc.step}"></div>`;
+			if (sc.values) return `<div class="f"><label for="c-${k}">${label}</label><select id="c-${k}">${sc.values.map((v) => `<option value="${v}">${esc((LABELS[k] || {})[v] || v)}</option>`).join('')}</select></div>`;
+			return `<div class="f"><label for="c-${k}">${label}${help || unit ? ` <span>— ${help || ''}${unit ? ` (${unit})` : ''}</span>` : ''}</label>
+				<input type="range" id="r-${k}" min="${sc.min}" max="${sc.max}" step="${sc.step}" aria-label="${esc(label)} (curseur)"><input type="number" id="c-${k}" min="${sc.min}" max="${sc.max}" step="${sc.step}"></div>`;
 		}
 		for (const [sec, list] of Object.entries(SECTIONS)) $('#sec-' + sec).innerHTML = list.map(field).join('');
 		const ALLKEYS = Object.values(SECTIONS).flat().map((f) => f[0]);
@@ -212,22 +226,31 @@
 			for (const k of ALLKEYS) {
 				const sc = KBM.TRANSITION_SCHEMA[k], el = $('#c-' + k);
 				if (sc.bool) el.checked = !!s[k];
-				else { if (document.activeElement !== el) el.value = s[k]; if (!sc.values) $('#r-' + k).value = s[k]; }
+				else {
+					if (document.activeElement !== el) el.value = s[k];
+					const range = $('#r-' + k);
+					if (range && document.activeElement !== range) range.value = s[k];
+				}
 			}
 		}
-		let saveT;
+		// L'écriture est retardée (250 ms) : pendant ce temps, et juste après, le replicant renvoie des valeurs déjà dépassées
+		// par le curseur. Ces échos sont ignorés pendant ECHO_MS après la dernière modification locale.
+		const ECHO_MS = 400;
+		let saveT, localAt = 0;
+		const writeSettings = () => { localAt = Date.now(); trRep.value = { ...draft }; };
 		function changed(save = true) {
 			draft = readControls();
+			localAt = Date.now();
 			renderTimings();
 			pvLoad(true);
-			if (save) { clearTimeout(saveT); saveT = setTimeout(() => { trRep.value = { ...draft }; flash('✔ Réglages appliqués à l’antenne'); }, 250); }
+			if (save) { clearTimeout(saveT); saveT = setTimeout(() => { writeSettings(); flash('✔ Réglages appliqués à l’antenne'); }, 250); }
 		}
 		for (const k of ALLKEYS) {
 			const sc = KBM.TRANSITION_SCHEMA[k], el = $('#c-' + k);
 			if (sc.bool || sc.values) el.onchange = () => changed();
 			else {
 				$('#r-' + k).oninput = (e) => { el.value = e.target.value; changed(); };
-				el.oninput = () => changed();
+				el.oninput = () => { $('#r-' + k).value = el.value; changed(); };
 				$('#r-' + k).onchange = () => changed();
 				el.onchange = () => changed();
 			}
@@ -240,15 +263,22 @@
 				const full = KBM.trApplyPreset(draft, p);
 				return `<button data-preset="${id}" class="${presetMatch(full) ? 'active' : ''}">${esc(p.label)}</button>`;
 			}).join('');
-			$('#pr-mine').innerHTML = (draft.presets || []).map((p, i) => `<div class="it"><button data-mine="${i}" class="${presetMatch(KBM.trApplyPreset(draft, p)) ? 'active' : ''}">★ ${esc(p.name)}</button><button class="danger del" data-del="${i}" title="Supprimer">✕</button></div>`).join('')
+			$('#pr-mine').innerHTML = (draft.presets || []).map((p, i) => `<div class="it"><button data-mine="${i}" class="${presetMatch(KBM.trApplyPreset(draft, p)) ? 'active' : ''}">★ ${esc(p.name)}</button><button class="danger del" data-del="${i}" title="Supprimer ce préréglage">✕</button></div>`).join('')
 				|| '<div class="empty">Aucun préréglage perso pour l’instant.</div>';
 		}
-		const applyAll = (s) => { draft = KBM.trSettings(s); writeControls(draft); renderTimings(); pvLoad(true); trRep.value = { ...draft }; };
+		const applyAll = (s) => { draft = KBM.trSettings(s); writeControls(draft); renderTimings(); pvLoad(true); writeSettings(); };
 		$('#tr-presets').onclick = (e) => { const p = KBM.TRANSITION_PRESETS[e.target.dataset.preset]; if (p) applyAll(KBM.trApplyPreset(draft, p)); };
 		$('#pr-mine').onclick = (e) => {
-			const i = e.target.dataset.mine, d = e.target.dataset.del;
+			const b = e.target.closest('button'); if (!b) return;
+			const i = b.dataset.mine, d = b.dataset.del;
 			if (i != null) applyAll(KBM.trApplyPreset(draft, draft.presets[+i]));
-			if (d != null) { const presets = draft.presets.filter((_, j) => j !== +d); applyAll({ ...draft, presets }); }
+			if (d != null) {
+				KBD.arm(b, () => {
+					const name = (draft.presets[+d] || {}).name;
+					applyAll({ ...draft, presets: draft.presets.filter((_, j) => j !== +d) });
+					flash(`Préréglage « ${name} » supprimé`);
+				}, { label: 'Supprimer ?' });
+			}
 		};
 		$('#pr-save').onclick = () => {
 			const name = $('#pr-name').value.trim() || `Perso ${(draft.presets || []).length + 1}`;
@@ -257,23 +287,25 @@
 			applyAll({ ...draft, presets: list });
 			$('#pr-name').value = '';
 		};
-		$('#tr-reset').onclick = () => applyAll({ ...KBM.TRANSITION_DEFAULT, presets: draft.presets });
+		// Les réglages par défaut partent aussitôt à l'antenne : 2 clics
+		KBD.confirm('#tr-reset', () => { applyAll({ ...KBM.TRANSITION_DEFAULT, presets: draft.presets }); flash('Réglages par défaut rétablis'); }, { label: 'Remplacer mes réglages (à l’antenne) ?' });
 
 		// Récapitulatif des temps (couverture calculée sur la géométrie réelle)
-		const bar = (t) => `<div class="timing"><i style="left:${t.coveredFrom / t.duration * 100}%;width:${t.coveredMs / t.duration * 100}%"></i><b style="left:${t.cut / t.duration * 100}%"></b></div>`;
-		const line = (lbl, t) => `${lbl} : total <b>${t.duration} ms</b> · couvert de <b>${t.coveredFrom}</b> à <b>${t.coveredTo} ms</b> (${t.coveredMs} ms) · coupe à <b>${t.cut} ms</b>${t.covered ? '' : ' <span style="color:var(--red)">— jamais totalement couvert !</span>'}${bar(t)}`;
+		const pct = (x, t) => (x / t.duration * 100) + '%';
+		const bar = (t) => `<div class="timing"><i style="--from:${pct(t.coveredFrom, t)};--w:${pct(t.coveredMs, t)}"></i><b style="--at:${pct(t.cut, t)}"></b></div>`;
+		const line = (lbl, t) => `${lbl} : total <b>${t.duration} ms</b> · couvert de <b>${t.coveredFrom}</b> à <b>${t.coveredTo} ms</b> (${t.coveredMs} ms) · coupe à <b>${t.cut} ms</b>${t.covered ? '' : ' <span class="warn">— jamais totalement couvert !</span>'}${bar(t)}`;
 		function renderTimings() {
 			const tl = KBM.stingerTiming(draft, false), tm = KBM.stingerTiming(draft, true);
-			T = { ...tl, point: tl.cut };
 			$('#tl-logo').innerHTML = line('Logo seul', tl);
 			$('#tl-map').innerHTML = line('Avec map', tm);
-			$('#tr-hint').innerHTML = `OBS : <span class="mono">graphics/transition.html</span> en source navigateur 1920×1080 <b>tout en haut</b> ; coupez la scène dessous au point de coupe :
-				<b>${tl.cut} ms</b> (logo) / <b>${tm.cut} ms</b> (avec map) après le clic — utilisé automatiquement par la régie et <span class="mono">stream.html</span>.`;
+			$('#tr-hint').innerHTML = `Avec <span class="mono">stream.html</span>, rien à régler dans OBS : la transition est déjà dedans et la régie agit toute seule au point de coupe.
+				Point de coupe (écran entièrement couvert) : <b>${tl.cut} ms</b> (logo) / <b>${tm.cut} ms</b> (avec map) après le clic — à reprendre si tu utilises le stinger exporté comme transition OBS.`;
 			renderPresets();
 		}
 
 		trRep.on('change', (v) => {
 			// Mise à jour venant d'ailleurs (autre panneau) : on ne coupe pas une édition en cours
+			if (Date.now() - localAt < ECHO_MS) return;
 			const s = KBM.trSettings(v);
 			if (JSON.stringify(s) === JSON.stringify(draft)) return;
 			draft = s; writeControls(s); renderTimings(); pvLoad(false);
@@ -281,7 +313,7 @@
 
 		// ---- Aperçu local (iframe transition.html?preview=1, piloté par postMessage) ----
 		const frame = $('#pv-frame');
-		let pvReady = false, pvState = { t: 0, duration: 1, playing: false }, scrubbing = false;
+		let pvReady = false, scrubbing = false;
 		const fit = () => { frame.style.transform = `scale(${$('#pv').clientWidth / 1920})`; };
 		new ResizeObserver(fit).observe($('#pv')); fit();
 		const pvSend = (msg) => { if (pvReady) frame.contentWindow.postMessage({ type: 'kb-stinger', ...msg }, '*'); };
@@ -295,7 +327,6 @@
 			if (!d || e.source !== frame.contentWindow) return;
 			if (d.type === 'kb-stinger-ready') { pvReady = true; pvLoad(true); }
 			if (d.type === 'kb-stinger-state') {
-				pvState = d;
 				const sc = $('#pv-scrub');
 				sc.max = d.duration;
 				if (!scrubbing) sc.value = d.t;
@@ -303,7 +334,7 @@
 				$('#pv-cov').style.left = (d.coveredFrom / d.duration * 100) + '%';
 				$('#pv-cov').style.width = ((d.coveredTo - d.coveredFrom) / d.duration * 100) + '%';
 				$('#pv-cut').style.left = (d.cut / d.duration * 100) + '%';
-				$('#pv-info').innerHTML = `Écran couvert de <b>${d.coveredFrom}</b> à <b>${d.coveredTo} ms</b> · coupe à <b>${d.cut} ms</b> · ${$('#tr-mapsel').value ? 'avec map' : 'logo seul'}${d.t >= d.coveredFrom && d.t <= d.coveredTo ? ' · <span style="color:var(--gold)">● couvert</span>' : ''}`;
+				$('#pv-info').innerHTML = `Écran couvert de <b>${d.coveredFrom}</b> à <b>${d.coveredTo} ms</b> · coupe à <b>${d.cut} ms</b> · ${$('#tr-mapsel').value ? 'avec map' : 'logo seul'}${d.t >= d.coveredFrom && d.t <= d.coveredTo ? ' · <span class="covered">● couvert</span>' : ''}`;
 			}
 		});
 		$('#pv-play').onclick = () => pvSend({ cmd: 'play' });
@@ -327,32 +358,39 @@
 			KB.rep.transition.value = { at: Date.now(), map };
 			flash(map ? `Transition lancée : ${map}` : 'Transition lancée (logo)');
 		};
-		let msgT;
-		function flash(t) { const m = $('#tr-msg'); m.textContent = t; m.className = 'msg ok'; clearTimeout(msgT); msgT = setTimeout(() => (m.textContent = ''), 2500); }
 
-		// ---- Export PNG ----
-		const exp = nodecg.Replicant('mapsExport', { defaultValue: { running: false, done: 0, total: 0, map: null, path: null, error: null, at: 0 } });
+		// ---- Export PNG (valeur par défaut de mapsExport déclarée par extension/maps.js) ----
+		const exp = nodecg.Replicant('mapsExport');
 		const startExport = (map) => {
-			nodecg.sendMessage('maps:exportStinger', { map }).catch((e) => { const m = $('#ex-msg'); m.textContent = e.message || String(e); m.className = 'msg err'; });
+			nodecg.sendMessage('maps:exportStinger', { map }).catch((e) => KBD.flash('ex-msg', e.message || String(e), 'err', 0));
 		};
 		$('#ex-logo').onclick = () => startExport(null);
 		$('#ex-map').onclick = () => startExport($('#tr-mapsel').value || null);
 		exp.on('change', (v) => {
 			if (!v) return;
-			const m = $('#ex-msg');
 			$('#ex-logo').disabled = $('#ex-map').disabled = !!v.running;
-			$('#ex-bar').style.display = v.running || v.path ? '' : 'none';
+			$('#ex-bar').classList.toggle('hidden', !(v.running || v.path));
 			$('#ex-fill').style.width = (v.total ? (v.done / v.total) * 100 : 0) + '%';
-			if (v.running) { m.className = 'msg'; m.textContent = `Export${v.map ? ' ' + v.map : ''} en cours… ${v.done}/${v.total || '?'} images`; }
-			else if (v.error) { m.className = 'msg err'; m.textContent = v.error; }
-			else if (v.path) { m.className = 'msg ok'; m.innerHTML = `Terminé : <span class="mono">${esc(v.path)}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), !!v.map).cut} ms (voir info.txt)`; }
-			else m.textContent = '';
+			if (v.running) KBD.flash('ex-msg', `Export${v.map ? ' ' + v.map : ''} en cours… ${v.done}/${v.total || '?'} images`, '', 0);
+			else if (v.error) KBD.flash('ex-msg', v.error, 'err', 0);
+			else if (v.path) {
+				const m = KBD.flash('ex-msg', 'Terminé', 'ok', 0);
+				m.innerHTML = `Terminé : <span class="mono">${esc(v.path)}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), !!v.map).cut} ms (voir info.txt)`;
+			} else KBD.flash('ex-msg', '');
 		});
 
-		// ---- Visibilité ----
-		document.querySelectorAll('[data-show]').forEach((b) => (b.onclick = () => setGfx(b.dataset.show, { visible: true })));
-		document.querySelectorAll('[data-hide]').forEach((b) => (b.onclick = () => setGfx(b.dataset.hide, { visible: false })));
-		$('#hide-all').onclick = () => { const v = KBM.cfg(); gfx.value = { intro: { ...v.intro, visible: false }, series: { ...v.series, visible: false }, result: { ...v.result, visible: false } }; };
+		// ---- Écrans maps : AFFICHER / ● À L'ANTENNE (exclusivité gérée par KBO) ----
+		KBO.bind('#screens');
+		// Bouton réécrit seulement s'il change, et jamais pendant qu'on appuie dessus (le clic serait perdu)
+		const ovSlots = KB.$$('[data-ovslot]').map((el) => KBD.deferWhileEditing(el, () => {
+			const html = KBO.button(el.dataset.ovslot);
+			if (el._html !== html) { el.innerHTML = html; el._html = html; }
+		}));
+		KB.watch(KBO.repNames(), () => {
+			ovSlots.forEach((render) => render());
+			for (const el of KB.$$('[data-ovdot]')) el.classList.toggle('on', KBO.isVisible(el.dataset.ovdot));
+		});
+		$('#hide-all').onclick = () => ['map-intro', 'map-series', 'map-result'].forEach((id) => KBO.hide(id));
 		$('#intro-index').onchange = (e) => setGfx('intro', { index: e.target.value === '' ? null : +e.target.value });
 		$('#result-index').onchange = (e) => setGfx('result', { index: e.target.value === '' ? null : +e.target.value, mvp: null });
 		$('#result-mvp').onchange = (e) => { $('#mvp-free').value = ''; setGfx('result', { mvp: e.target.value || null, mvpTeam: null }); };
@@ -364,7 +402,7 @@
 		$('#mvp-free').onkeydown = (e) => { if (e.key === 'Enter') applyFree(); };
 		$('#mvp-team').onchange = () => { if (KBM.cfg().result.mvp) setGfx('result', { mvpTeam: $('#mvp-team').value || null }); };
 
-		function mapOptions(match, current) {
+		function mapOptions(match) {
 			const maps = (match && match.maps) || [];
 			const cur = KBM.mapAt(null, match);
 			let html = `<option value="">Auto — map courante${cur ? ` (${cur.number}. ${esc(cur.entry.map || '?')})` : ''}</option>`;
@@ -374,18 +412,14 @@
 			});
 			return html;
 		}
-		function fillSelect(sel, html, value) {
-			if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
-			sel.value = value == null ? '' : String(value);
-		}
 
+		let trHtmlShown = null; // menu « map de la transition » : le choix de l'utilisateur est gardé tant que la liste ne change pas
 		function render() {
 			const match = KB.rep.match.value || {};
 			const v = KBM.cfg();
-			for (const k of ['intro', 'series', 'result']) $('#dot-' + k).classList.toggle('on', !!v[k].visible);
 			const mo = mapOptions(match);
-			fillSelect($('#intro-index'), mo, v.intro.index);
-			fillSelect($('#result-index'), mo, v.result.index);
+			KBD.fillSelect('#intro-index', mo, v.intro.index);
+			KBD.fillSelect('#result-index', mo, v.result.index);
 
 			// Map pour la transition : maps de la série puis le reste du pool / maps connues
 			const series = (match.maps || []).map((m) => m.map).filter(Boolean);
@@ -393,11 +427,10 @@
 			const cur = KBM.mapAt(null, match);
 			const trHtml = `<option value="">— Aucune map (logo seul) —</option>` + (series.length ? `<optgroup label="Série">${series.map((n, i) => `<option value="${esc(n)}">Map ${i + 1} — ${esc(n)}</option>`).join('')}</optgroup>` : "")
 				+ (others.length ? `<optgroup label="Autres maps">${others.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>` : '');
-			const sel = $('#tr-mapsel');
-			if (sel.dataset.html !== trHtml) {
-				const prev = sel.value;
-				sel.innerHTML = trHtml; sel.dataset.html = trHtml;
-				sel.value = prev && [...sel.options].some((o) => o.value === prev) ? prev : (cur && cur.entry.map) || series[0] || '';
+			if (trHtml !== trHtmlShown) {
+				const prev = $('#tr-mapsel').value;
+				const keep = prev && (series.includes(prev) || others.includes(prev));
+				if (KBD.fillSelect('#tr-mapsel', trHtml, keep ? prev : (cur && cur.entry.map) || series[0] || '')) trHtmlShown = trHtml;
 			}
 
 			// MVP : joueurs de l'équipe gagnante de la map choisie (sinon des deux équipes)
@@ -413,12 +446,11 @@
 					return `<option value="${esc(p.riotId)}">${esc(p.name)} (${esc(p.riotId)})${extra ? ' — ' + esc(extra) : ''}</option>`;
 				}).join('') + '</optgroup>';
 			}
-			const mvpSel = $('#result-mvp');
 			const inRoster = v.result.mvp && html.includes(`value="${esc(v.result.mvp)}"`);
-			fillSelect(mvpSel, html, inRoster ? v.result.mvp : '');
+			KBD.fillSelect('#result-mvp', html, inRoster ? v.result.mvp : '');
 			if (v.result.mvp && !inRoster && document.activeElement !== $('#mvp-free')) $('#mvp-free').value = v.result.mvp;
 			const tA = KBM.teamOf('A', match), tB = KBM.teamOf('B', match);
-			fillSelect($('#mvp-team'), `<option value="">Équipe : auto</option><option value="A">${esc(tA ? tA.tag || tA.name : 'Équipe A')}</option><option value="B">${esc(tB ? tB.tag || tB.name : 'Équipe B')}</option>`, v.result.mvpTeam);
+			KBD.fillSelect('#mvp-team', `<option value="">Équipe : auto</option><option value="A">${esc(tA ? tA.tag || tA.name : 'Équipe A')}</option><option value="B">${esc(tB ? tB.tag || tB.name : 'Équipe B')}</option>`, v.result.mvpTeam);
 			const noPlayers = !keys.some((k) => { const t = KBM.teamOf(k, match); return t && (t.players || []).length; });
 			$('#mvp-hint').textContent = (!at ? 'Aucune map dans la série. ' : w ? `Vainqueur : ${(KBM.teamOf(w, match) || {}).name || 'équipe ' + w}. ` : 'Map sans vainqueur pour l’instant : joueurs des deux équipes proposés. ')
 				+ (noPlayers ? 'Aucun joueur inscrit : utilisez la saisie libre.' : 'Saisie libre possible si le joueur n’est pas inscrit.')

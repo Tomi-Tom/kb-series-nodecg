@@ -54,7 +54,7 @@
 	S.rotation = () => {
 		const v = S.rotRep.status === 'declared' ? S.rotRep.value : null;
 		const items = v && Array.isArray(v.items) ? v.items : DEFAULT_ROTATION.items;
-		return items.filter((it) => it && ROTATION_TYPES[it.type]).map((it, i) => ({ id: it.id || 'r' + i, enabled: it.enabled !== false, duration: Math.max(3, Number(it.duration) || 8), ...it }));
+		return items.filter((it) => it && ROTATION_TYPES[it.type]).map((it, i) => ({ ...it, id: it.id || 'r' + i, enabled: it.enabled !== false, duration: Math.max(3, Number(it.duration) || 8) }));
 	};
 
 	const T = () => (KB.rep.tournament.status === 'declared' && KB.rep.tournament.value) || {};
@@ -76,18 +76,8 @@
 	/** Nom d'équipe propre */
 	S.teamName = (team, fallback = 'À déterminer') => (team && (team.name || team.tag)) || fallback;
 
-	/** Réduit la taille de police jusqu'à ce que le texte tienne dans sa boîte */
-	S.fit = (el, min = 14, widthOnly = false) => {
-		if (!el) return;
-		el.style.fontSize = '';
-		let size = parseFloat(getComputedStyle(el).fontSize);
-		let guard = 60;
-		while (guard-- > 0 && size > min && (el.scrollWidth > el.clientWidth + 1 || (!widthOnly && el.scrollHeight > el.clientHeight + 1))) {
-			size -= 2;
-			el.style.fontSize = size + 'px';
-		}
-	};
-	S.fitAll = (root, min) => KB.$$('[data-fit]', root).forEach((el) => S.fit(el, +el.dataset.fit || min));
+	/** Ajuste la police de tous les [data-fit] d'un conteneur (data-fit = taille minimale en px) */
+	S.fitAll = (root, min = 14) => KB.$$('[data-fit]', root).forEach((el) => KB.fit(el, { min: +el.dataset.fit || min, height: true }));
 
 	/**
 	 * Compte à rebours branché sur le replicant coeur `countdown`.
@@ -188,9 +178,9 @@
 	S.shineLogo = (img) => {
 		if (!img || img.parentNode.classList.contains('sc-shine-wrap')) return;
 		const wrap = document.createElement('span');
-		wrap.className = 'sc-shine-wrap ' + (img.className.match(/kb-anim[w-]*/g) || []).join(' ');
+		wrap.className = 'sc-shine-wrap ' + (img.className.match(/kb-anim[\w-]*/g) || []).join(' ');
 		wrap.style.cssText = img.style.cssText;
-		img.className = img.className.replace(/kb-anim[w-]*/g, '').trim();
+		img.className = img.className.replace(/kb-anim[\w-]*/g, '').trim();
 		img.style.cssText = '';
 		img.parentNode.insertBefore(wrap, img);
 		wrap.appendChild(img);
@@ -203,7 +193,7 @@
 	};
 
 	/** Rejoue un "pop" lumineux sur un élément (changement de donnée) */
-	S.bump = (el) => { if (!el) return; el.classList.remove('sc-bump'); void el.offsetWidth; el.classList.add('sc-bump'); };
+	S.bump = (el) => KB.restart(el, 'sc-bump');
 	/** Met à jour un texte et anime s'il a changé (pas au premier rendu) */
 	S.setText = (el, txt) => {
 		if (!el) return;

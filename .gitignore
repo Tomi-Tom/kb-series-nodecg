@@ -1,7 +1,7 @@
 # Dépendances
 node_modules/
 
-# Données locales (passent par Régie → Données → Exporter / Importer)
+# Données locales (se transfèrent avec le panneau Données → Exporter / Importer)
 db/
 assets/
 logs/
@@ -16,3 +16,12 @@ Medias/
 shots/
 exports/
 *.log
+
+# Divers (éditeurs, système)
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+.env.*
+!.env.example

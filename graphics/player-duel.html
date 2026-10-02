@@ -2,6 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
+	<title>Face à face joueurs</title>
+	<!--
+		Duel plein écran entre deux joueurs : visuels de chaque côté, stats comparées au centre (KBP.DUEL_STATS, via KB.player).
+		Replicants lus : playerDuel (défaut : KBP.DUEL_DEFAULT, shared/player.js), playerProfiles, playerData, teams, match (phase,
+		agent pické), valorantData. Piloté par le panneau Stats Joueur (dashboard/player-stats.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<style>
 		#scene { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
@@ -27,12 +33,16 @@
 		.side .band { position: absolute; top: -100px; width: 150px; height: 1300px; overflow: hidden; background: linear-gradient(180deg, transparent, var(--c) 30%, var(--c) 70%, transparent); opacity: .45; }
 		.side .band::after { content: ''; position: absolute; left: 0; right: 0; height: 300px; top: -320px; background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .55), transparent); animation: sweepY 6s ease-in-out 1.5s infinite; }
 		.side.right .band::after { animation-delay: 4.5s; }
-		@keyframes sweepY { 0% { top: -320px; } 50%, 100% { top: 1400px; } }
+		@keyframes sweepY { 0% { transform: none; } 50%, 100% { transform: translateY(1720px); } }
 		.side.left .band { left: 470px; transform: skewX(-14deg); }
 		.side.right .band { right: 470px; transform: skewX(14deg); }
-		.side .glow { position: absolute; top: 200px; width: 560px; height: 560px; border-radius: 50%; background: var(--agent, var(--c)); filter: blur(140px); animation: breathe 6s ease-in-out infinite; }
+		/* Lueur : disque de 560 px adouci sur 420 px par un masque en dégradé (même rendu qu'un flou de 140 px, sans filter: blur,
+		   coûteux sous OBS) ; la boîte de 1400 px a le même centre que le disque. */
+		.side .glow { position: absolute; top: -220px; width: 1400px; height: 1400px; background: var(--agent, var(--c)); animation: breathe 6s ease-in-out infinite;
+			mask-image: radial-gradient(closest-side, rgba(0, 0, 0, .864), rgba(0, 0, 0, .847) 7.1%, rgba(0, 0, 0, .796) 14.3%, rgba(0, 0, 0, .711) 21.4%, rgba(0, 0, 0, .601) 28.6%, rgba(0, 0, 0, .474) 35.7%,
+				rgba(0, 0, 0, .346) 42.9%, rgba(0, 0, 0, .232) 50%, rgba(0, 0, 0, .142) 57.1%, rgba(0, 0, 0, .078) 64.3%, rgba(0, 0, 0, .039) 71.4%, rgba(0, 0, 0, .017) 78.6%, rgba(0, 0, 0, .007) 85.7%, transparent); }
 		.side.photo .glow { background: var(--c); }
-		.side.left .glow { left: 60px; } .side.right .glow { right: 60px; animation-delay: -3s; }
+		.side.left .glow { left: -360px; } .side.right .glow { right: -360px; animation-delay: -3s; }
 
 		/* Portrait d'agent (sans photo) */
 		.side .portrait { position: absolute; top: 20px; width: 900px; height: 900px; object-fit: cover; object-position: top center; filter: drop-shadow(0 20px 40px rgba(0, 0, 0, .7)); }
@@ -89,7 +99,8 @@
 		@keyframes pulseDot { 0%, 100% { opacity: .6; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.15); } }
 		#head .kb-rule { position: relative; overflow: hidden; width: 520px; margin: 14px auto 0; }
 		#head .kb-rule::after { content: ''; position: absolute; top: 0; bottom: 0; width: 100px; left: -120px; background: linear-gradient(90deg, transparent, #fff, transparent); animation: sweepX 5s ease-in-out 2s infinite; }
-		@keyframes sweepX { 0% { left: -120px; } 40%, 100% { left: 110%; } }
+		/* Filet de 520 px : le reflet va de -120 px à 110 % du filet */
+		@keyframes sweepX { 0% { transform: none; } 40%, 100% { transform: translateX(692px); } }
 
 		#tally { display: flex; align-items: center; gap: 22px; margin-top: 16px; font: 600 14px var(--kb-ui); letter-spacing: .24em; color: var(--kb-muted); text-transform: uppercase; }
 		#tally b { font: 400 48px/1 var(--kb-display); color: var(--kb-text); letter-spacing: 0; }
@@ -138,15 +149,19 @@
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/player.js"></script>
 	<script>
-		const duel = nodecg.Replicant('playerDuel', { defaultValue: KBP.DUEL_DEFAULT });
+		// Couleur par défaut du joueur de droite : or, et non le rouge de l'équipe B (réservé aux défaites / LIVE / bans).
+		// Si les deux côtés ont la même couleur, la droite passe à l'autre teinte.
+		const RIGHT_COLOR = '#c9b274', RIGHT_ALT = '#5ec4ff';
+
+		const duel = nodecg.Replicant('playerDuel', { defaultValue: KB.clone(KBP.DUEL_DEFAULT) });
 		const $ = (id) => document.getElementById(id);
 		const esc = KB.esc;
 		const presence = KB.presence($('scene'), 420);
 		$('logo').src = KB.img.kbs;
-		$('motes').innerHTML = Array.from({ length: 14 }, (_, i) => {
-			const x = (i * 149) % 1900, d = (i * 1.9) % 12, t = 12 + (i % 5) * 3, s = 2 + (i % 3);
-			return `<i style="left:${x}px;width:${s}px;height:${s}px;animation-duration:${t}s;animation-delay:-${d}s"></i>`;
-		}).join('');
+		KBP.motes($('motes'), 14, { spread: 149, lag: 1.9 });
+
+		// N'écrit le HTML que s'il a changé : une mise à jour à chaud ne recrée pas les nœuds, donc ne rejoue pas leurs animations
+		const setHTML = (el, html) => { if (el._h !== html) { el._h = html; el.innerHTML = html; } };
 
 		// Fiche fusionnée (tracker + saisie manuelle) ; agent = pické sur la map en cours, sinon le plus joué
 		function sideData(riotId) {
@@ -159,33 +174,42 @@
 
 		function renderSide(el, d, side) {
 			const p = d.p;
-			el.classList.toggle('photo', !!(p && p.photo));
+			if (!el.firstChild) {
+				el.innerHTML = `<div class="wash"></div><div class="band"></div>
+					<div class="card kb-panel kb-anim ${side === 'left' ? 'kb-anim--left' : 'kb-anim--right'}" style="--i:3"><div class="team"></div><div class="nm"></div><div class="meta"></div></div>`;
+			}
 			el.style.setProperty('--agent', (d.agent && d.agent.color) || 'var(--c)');
-			const anim = side === 'left' ? 'kb-anim--left' : 'kb-anim--right';
-			const team = p && p.team ? `${KB.teamLogo(p.team, 46)}<span class="tn">${esc(p.team.name)}</span>${p.role ? `<span class="kb-pill kb-pill--blue">${esc(KB.roleLabel(p.role))}</span>` : ''}` : `<span class="kb-label">${p ? 'Agent libre' : 'Joueur'}</span>`;
+
+			// Visuel (portrait d'agent, photo) : recréé seulement si le joueur, sa photo ou son agent changent
+			const visualKey = JSON.stringify([p && p.key, p && p.photo, d.agent && d.agent.name, d.agent && d.agent.portrait]);
+			if (el._visualKey !== visualKey) {
+				el._visualKey = visualKey;
+				el.classList.toggle('photo', !!(p && p.photo));
+				let visual, photo = '';
+				if (p && p.photo) {
+					// Agent en fond, photo standing devant (ancrée en bas, fondue)
+					visual = d.agent && d.agent.portrait ? `<img class="portrait back" src="${esc(d.agent.portrait)}" alt="">` : '';
+					photo = `<div class="pbox"><div class="pfloat"><img class="photo-img" src="${esc(p.photo)}" alt=""></div></div>`;
+				} else if (d.agent && d.agent.portrait) {
+					visual = `<div class="ghost">${esc(d.agent.name)}</div><img class="portrait" src="${esc(d.agent.portrait)}" alt="">`;
+				} else {
+					visual = '<div class="silhouette">?</div>';
+				}
+				KB.$$('.pz, .pbox', el).forEach((n) => n.remove());
+				KB.$('.card', el).insertAdjacentHTML('beforebegin', `<div class="pz"><div class="glow"></div>${visual}</div>${photo}`);
+			}
+
+			// Carte d'identité : mise à jour en place
 			const meta = [];
 			if (p && p.rank) meta.push(`${p.rank.icon ? `<img src="${esc(p.rank.icon)}" alt="">` : ''}<b>${esc(p.rank.name)}</b>`);
 			if (d.agent) meta.push(`<span class="agent">${esc(d.agent.name)}</span>`);
 			if (p && !d.hasStats) meta.push('<span>Stats indisponibles</span>');
-			let visual, photo = '';
-			if (p && p.photo) {
-				// Agent en fond, photo standing devant (ancrée en bas, fondue)
-				visual = d.agent && d.agent.portrait ? `<img class="portrait back" src="${esc(d.agent.portrait)}" alt="">` : '';
-				photo = `<div class="pbox"><div class="pfloat"><img class="photo-img" src="${esc(p.photo)}" alt=""></div></div>`;
-			} else if (d.agent && d.agent.portrait) {
-				visual = `<div class="ghost">${esc(d.agent.name)}</div><img class="portrait" src="${esc(d.agent.portrait)}" alt="">`;
-			} else {
-				visual = '<div class="silhouette">?</div>';
-			}
-			el.innerHTML = `
-				<div class="wash"></div><div class="band"></div>
-				<div class="pz"><div class="glow"></div>${visual}</div>${photo}
-				<div class="card kb-panel kb-anim ${anim}" style="--i:3">
-					<div class="team">${team}</div>
-					<div class="nm">${p ? `${esc(p.name)}${p.tag ? `<small>#${esc(p.tag)}</small>` : ''}` : 'À définir'}</div>
-					<div class="meta">${meta.join('<span>·</span>')}</div>
-				</div>`;
-			KBP.fit(el.querySelector('.nm'), 92, 44, 444);
+			setHTML(KB.$('.team', el), p && p.team
+				? `${KB.teamLogo(p.team, 46)}<span class="tn">${esc(p.team.name)}</span>${p.role ? `<span class="kb-pill kb-pill--blue">${esc(KB.roleLabel(p.role))}</span>` : ''}`
+				: `<span class="kb-label">${p ? 'Agent libre' : 'Joueur'}</span>`);
+			setHTML(KB.$('.nm', el), p ? `${esc(p.name)}${p.tag ? `<small>#${esc(p.tag)}</small>` : ''}` : 'À définir');
+			setHTML(KB.$('.meta', el), meta.join('<span>·</span>'));
+			KB.fit(KB.$('.nm', el), { max: 92, min: 44, step: 4, width: 444 });
 		}
 
 		function statOf(d, key) {
@@ -193,14 +217,36 @@
 			return s && s.value != null ? { v: s.value, display: s.display || String(s.value) } : null;
 		}
 
-		function render() {
+		// Lignes de comparaison, recréées à chaque apparition (barres à 0, prêtes à se remplir)
+		let barsOn = false, barsTimer = null;
+		function buildRows() {
+			$('rows').innerHTML = KBP.DUEL_STATS.map((st, i) => `<div class="row kb-panel kb-anim" style="--i:${4 + i}">
+				<div class="val l"></div><div class="bar l"><i></i></div><div class="lbl">${esc(st.label)}</div><div class="bar r"><i></i></div><div class="val r"></div>
+			</div>`).join('');
+			barsOn = false;
+		}
+
+		// live = duel déjà à l'écran : une valeur modifiée est recomptée brièvement, les barres glissent vers leur nouvelle largeur
+		function setVal(el, text, best, live) {
+			el.classList.toggle('best', !!best);
+			if (el.dataset.count === text) return;
+			el.dataset.count = text;
+			if (live) KB.countUp(el, text, { delay: 0, duration: 400 });
+			else el.textContent = text;
+		}
+		function setBar(el, w, best) {
+			el.classList.toggle('best', !!best);
+			el.dataset.w = w;
+			if (barsOn) el.style.width = w + '%';
+		}
+
+		function render(live) {
 			const g = duel.value || {};
 			const L = sideData(g.left), R = sideData(g.right);
-			// Couleurs : équipe de chaque joueur ; si même équipe ou inconnue → couleurs par défaut du thème
-			// (pas de rouge par défaut : il est réservé aux défaites / LIVE / bans)
-			const ca = (L.p && L.p.team && L.p.team.color) || '#3b8fe6';
-			let cb = (R.p && R.p.team && R.p.team.color) || '#c9b274';
-			if (cb.toLowerCase() === ca.toLowerCase()) cb = ca.toLowerCase() === '#c9b274' ? '#5ec4ff' : '#c9b274';
+			// Couleurs : équipe de chaque joueur, sinon couleurs par défaut (voir RIGHT_COLOR)
+			const ca = KB.teamColor(L.p && L.p.team);
+			let cb = (R.p && R.p.team && R.p.team.color) || RIGHT_COLOR;
+			if (cb.toLowerCase() === ca.toLowerCase()) cb = ca.toLowerCase() === RIGHT_COLOR ? RIGHT_ALT : RIGHT_COLOR;
 			const root = document.documentElement.style;
 			root.setProperty('--team-a', ca);
 			root.setProperty('--team-b', cb);
@@ -211,47 +257,41 @@
 			renderSide($('R'), R, 'right');
 
 			let wl = 0, wr = 0;
-			$('rows').innerHTML = KBP.DUEL_STATS.map((st, i) => {
-				const a = statOf(L, st.key), b = statOf(R, st.key);
+			KB.$$('#rows .row').forEach((row, i) => {
+				const key = KBP.DUEL_STATS[i].key;
+				const a = statOf(L, key), b = statOf(R, key);
 				const max = Math.max(a ? a.v : 0, b ? b.v : 0) || 1;
 				const bestL = a && (!b || a.v > b.v), bestR = b && (!a || b.v > a.v);
 				if (a && b) { if (bestL) wl++; if (bestR) wr++; }
 				const w = (x) => (x ? Math.max(6, Math.pow(x.v / max, 2) * 100) : 0);
-				return `<div class="row kb-panel kb-anim" style="--i:${4 + i}">
-					<div class="val l ${bestL ? 'best' : ''}" data-count="${esc(a ? a.display : '–')}">${esc(a ? a.display : '–')}</div>
-					<div class="bar l"><i class="${bestL ? 'best' : ''}" data-w="${w(a)}"></i></div>
-					<div class="lbl">${esc(st.label)}</div>
-					<div class="bar r"><i class="${bestR ? 'best' : ''}" data-w="${w(b)}"></i></div>
-					<div class="val r ${bestR ? 'best' : ''}" data-count="${esc(b ? b.display : '–')}">${esc(b ? b.display : '–')}</div>
-				</div>`;
-			}).join('');
-			$('tally').innerHTML = L.hasStats && R.hasStats
+				const [vl, vr] = KB.$$('.val', row), [bl, br] = KB.$$('.bar i', row);
+				setVal(vl, a ? a.display : '–', bestL, live);
+				setVal(vr, b ? b.display : '–', bestR, live);
+				setBar(bl, w(a), bestL);
+				setBar(br, w(b), bestR);
+			});
+			setHTML($('tally'), L.hasStats && R.hasStats
 				? `<b class="${wl > wr ? 'lead' : ''}">${wl}</b><span>Stats gagnées</span><b class="${wr > wl ? 'lead' : ''}">${wr}</b>`
-				: '<span>Comparaison incomplète</span>';
-			return JSON.stringify([L, R].map((d) => d.p && [d.p.key, d.p.photo, d.agent && d.agent.name, d.p.stats, d.p.team && d.p.team.id]));
+				: '<span>Comparaison incomplète</span>');
 		}
 
 		function animate() {
-			document.querySelectorAll('#rows [data-count]').forEach((el, i) => KB.countUp(el, el.dataset.count, { delay: 650 + Math.floor(i / 2) * 70, duration: 1000 }));
-			setTimeout(() => document.querySelectorAll('#rows .bar i').forEach((i) => { i.style.width = i.dataset.w + '%'; }), 700);
+			KB.$$('#rows .val').forEach((el, i) => KB.countUp(el, el.dataset.count, { delay: 650 + Math.floor(i / 2) * 70, duration: 1000 }));
+			clearTimeout(barsTimer);
+			barsTimer = setTimeout(() => { barsOn = true; KB.$$('#rows .bar i').forEach((i) => { i.style.width = i.dataset.w + '%'; }); }, 700);
 		}
 
-		let shownKey = null, sig = null, timer = null;
+		let shownKey = null, timer = null;
 		function update() {
 			const g = duel.value || {};
 			clearTimeout(timer);
 			if (!g.visible || (!g.left && !g.right)) { shownKey = null; presence.hide(); return; }
 			const key = [KB.key(g.left), KB.key(g.right)].join('|');
-			if (presence.visible && key === shownKey) {
-				// Mêmes joueurs : on ne re-rend que si leurs données ont changé (sans rejouer l'entrée complète)
-				const L = sideData(g.left), R = sideData(g.right);
-				const s = JSON.stringify([L, R].map((d) => d.p && [d.p.key, d.p.photo, d.agent && d.agent.name, d.p.stats, d.p.team && d.p.team.id]));
-				if (s !== sig) { sig = render(); document.querySelectorAll('#rows .bar i').forEach((i) => { i.style.width = i.dataset.w + '%'; }); }
-				return;
-			}
+			// Mêmes joueurs déjà à l'écran : mise à jour en place, sans rejouer l'entrée
+			if (presence.visible && key === shownKey) { render(true); return; }
 			const swap = presence.visible;
 			shownKey = key;
-			const go = () => { sig = render(); presence.show(); animate(); };
+			const go = () => { buildRows(); render(false); presence.show(); animate(); };
 			if (swap) { presence.hide(); timer = setTimeout(go, 460); } else go();
 		}
 

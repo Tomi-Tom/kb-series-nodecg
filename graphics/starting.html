@@ -2,7 +2,12 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
-	<title>KB SERIES — Le stream commence bientôt</title>
+	<title>KB SERIES · Le stream commence bientôt</title>
+	<!--
+		Scène plein écran « Bientôt » (avant le stream) : infos du tournoi façon affiche, compte à rebours, prochain match.
+		Replicants lus : tournament, teams, match, schedule, countdown, scenesTexts.
+		Pilotée par la régie (scène de fond de stream.html) et le panneau Écrans (dashboard/scenes.html).
+	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/scenes.css">
 	<style>
@@ -104,9 +109,11 @@
 	</div>
 
 	<script src="../shared/kb.js"></script>
+	<script src="../shared/defaults.js"></script>
 	<script src="../shared/scenes.js"></script>
 	<script>
 		const S = KBScenes, $ = KB.$;
+		const TOURNAMENT = KBDefaults.tournament(); // textes de secours si un champ est vidé
 		const stage = $('#stage');
 		$('#cal').innerHTML = S.calendarSVG(70);
 		$('#kbs').src = KB.img.kbs;
@@ -121,7 +128,7 @@
 		function render() {
 			const t = S.tournament(), tx = S.texts();
 			S.marquee($('#marquee'), tx.marquee);
-			const sub = String(t.subtitle || 'Tournoi Valorant 5v5').replace(/valorant\s*/i, '');
+			const sub = String(t.subtitle || TOURNAMENT.subtitle).replace(/valorant\s*/i, '');
 			$('#sub').innerHTML = KB.esc(sub).replace(/(\d+\s*v\s*\d+)/i, '<b>$1</b>');
 			$('#datesText').innerHTML = KB.esc(t.dates || '').replace(/\s*(&amp;|et)\s*/i, ' <small>ET</small> ');
 			$('#dates').style.visibility = t.dates ? '' : 'hidden';
@@ -132,7 +139,7 @@
 			$('#next').classList.toggle('hidden', !nm);
 			$('#sep').classList.toggle('hidden', !nm);
 			if (nm) {
-				const head = `<div class="head"><span class="kb-kicker">Prochain match</span>${nm.stage ? `<span class="kb-pill">${KB.esc(nm.stage)}${nm.format ? ' · ' + KB.esc(nm.format) : ''}</span>` : ''}</div>`;
+				const head = `<div class="head"><span class="kb-kicker">Prochain match</span>${nm.stage ? `<span class="kb-pill">${KB.esc(KB.joinDot(nm.stage, nm.format))}</span>` : ''}</div>`;
 				$('#next').innerHTML = head + `<div class="vs-row">${teamSide(nm.left)}<div class="vs">VS</div>${teamSide(nm.right)}</div>`;
 				if (S.changed('next', [nm.left && nm.left.id, nm.right && nm.right.id, nm.stage, nm.format, nm.left && nm.left.name, nm.right && nm.right.name])) KB.$$('#next .side, #next .head').forEach(S.bump);
 			}
@@ -146,9 +153,9 @@
 			txt.classList.toggle('is-zero', st.state === 'zero');
 			txt.classList.toggle('is-urgent', st.state === 'running' && st.ms <= 60000);
 			txt.classList.toggle('long', st.state === 'running' && st.text.length > 5);
-			if (st.state === 'running') { $('#cdLabel').textContent = st.label || 'Le stream commence dans'; txt.textContent = st.text; }
-			else if (st.state === 'zero') { $('#cdLabel').textContent = S.tournament().name || 'KB SERIES'; txt.textContent = st.text; }
-			else { $('#cdLabel').textContent = S.tournament().name || 'KB SERIES'; txt.textContent = S.texts().starting.fallback || ''; }
+			if (st.state === 'running') { $('#cdLabel').textContent = st.label || KBDefaults.COUNTDOWN_LABEL; txt.textContent = st.text; }
+			else if (st.state === 'zero') { $('#cdLabel').textContent = S.tournament().name || TOURNAMENT.name; txt.textContent = st.text; }
+			else { $('#cdLabel').textContent = S.tournament().name || TOURNAMENT.name; txt.textContent = S.texts().starting.fallback || ''; }
 		});
 
 		KB.watch(['tournament', 'teams', 'match', 'schedule', 'countdown', S.rep], render);

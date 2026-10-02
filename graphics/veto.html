@@ -2,13 +2,13 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
+	<title>Veto des maps</title>
+	<!-- Veto en direct : une carte par map du pool (ban / pick / decider, côté choisi) et l'étape suivante en pied d'écran.
+	     Lit match, teams, veto, valorantData, matchVeto (déroulé prévu) et matchGraphics.veto (visibilité).
+	     Piloté par le panneau « Veto » (dashboard/veto.html). -->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/match.css">
 	<style>
-		#stage { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
-		#stage.kb-in { opacity: 1; }
-		#stage.kb-out { opacity: 0; transition-duration: .4s; }
-
 		/* ---------- En-tête ---------- */
 		#head { position: absolute; left: 64px; right: 64px; top: 58px; height: 170px; display: grid; grid-template-columns: 1fr 620px 1fr; align-items: center; }
 		#title { text-align: center; }
@@ -70,7 +70,7 @@
 		.card.decider { transform: translateY(-12px); }
 		.card.decider .img { filter: brightness(.95) saturate(1.1); }
 		.card.decider .border { border: 4px solid var(--kb-gold-hi); box-shadow: inset 0 0 50px rgba(245, 196, 69, .45); }
-		.card.decider .tag { background: linear-gradient(180deg, #ffe08a, var(--kb-gold-hi)); color: #1a1430; }
+		.card.decider .tag { background: linear-gradient(180deg, #ffe08a, var(--kb-gold-hi)); color: var(--kb-ink); }
 		.card.decider .name { color: #ffe9b0; }
 		.card.decider .shade { background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, rgba(60, 44, 10, .95) 82%); }
 		/* Pas encore jouée */
@@ -88,8 +88,11 @@
 		#turnWrap { position: absolute; left: 0; right: 0; bottom: 72px; display: flex; justify-content: center; }
 		#turn { position: relative; z-index: 0; display: flex; align-items: center; justify-content: center; gap: 18px; min-width: 900px; max-width: 1180px; height: 84px; padding: 0 80px; white-space: nowrap; }
 		#turn::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(10, 15, 46, .82); border-top: 2px solid var(--kb-gold); border-bottom: 2px solid var(--kb-gold); clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%); }
-		#turn::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(100deg, transparent 42%, rgba(245, 196, 69, .16) 50%, transparent 58%); background-size: 300% 100%; clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%); animation: turn-sweep 6s linear infinite; }
-		@keyframes turn-sweep { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+		/* Reflet qui traverse le bandeau : calque 3× plus large que le bandeau, déplacé en transform, découpé par .fx */
+		#turn .fx { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; clip-path: polygon(0 0, 100% 0, calc(100% - 44px) 100%, 44px 100%); }
+		#turn .fx::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 300%; background: linear-gradient(100deg, transparent 42%, rgba(245, 196, 69, .16) 50%, transparent 58%); transform: translateX(-66.667%); animation: turn-sweep 6s linear infinite; }
+		@keyframes turn-sweep { from { transform: translateX(-66.667%); } to { transform: translateX(33.333%); } }
+		#turnIn { display: contents; }
 		.card .gl { position: absolute; inset: 0; pointer-events: none; }
 		.card.ban .gl { display: none; }
 		.team.is-turn::after { animation: turn-glow 1.4s ease-in-out infinite; }
@@ -111,7 +114,7 @@
 	</style>
 </head>
 <body>
-	<div id="stage">
+	<div id="stage" class="kb-scene">
 		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div><div class="m-drift"></div></div>
 		<div class="kb-frame"></div>
 
@@ -126,7 +129,7 @@
 		</div>
 
 		<div id="cards"></div>
-		<div id="turnWrap"><div id="turn" class="kb-anim" style="--i:12"></div></div>
+		<div id="turnWrap"><div id="turn" class="kb-anim" style="--i:12"><div class="fx"></div><div id="turnIn"></div></div></div>
 		<div id="partners" class="kb-anim" style="--i:13"><span>Présenté par</span><img id="logoCycom" alt=""><img id="logoEpitech" alt=""></div>
 		<img id="logoKbs" class="kb-logo kb-anim kb-anim--pop" style="--i:13" alt="">
 		<div id="empty">Aucune map dans le pool</div>
@@ -136,93 +139,106 @@
 	<script src="../shared/match.js"></script>
 	<script>
 		const M = window.KBMatch;
-		const clone = (v) => JSON.parse(JSON.stringify(v));
-		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
-		const plan = nodecg.Replicant('matchVeto', { defaultValue: clone(M.MATCH_DEFAULTS.matchVeto) });
+		const gfx = M.gfx();
+		const plan = M.vetoPlan();
 		const stage = KB.$('#stage');
-		const presence = KB.presence(stage, 450);
+		const scene = KB.scene(stage, { outMs: 450 });
 		KB.$('#logoKbs').src = KB.img.kbs;
 		KB.$('#logoCycom').src = KB.img.cycom;
 		KB.$('#logoEpitech').src = KB.img.epitech;
 
 		let poolKey = null;      // reconstruit les cartes quand le pool change
+		let cardW = 0;           // largeur des cartes (px)
 		let prevStates = {};     // état précédent de chaque carte (pour l'animation d'ajout)
 		let prevTurn = '';
+		// HTML déjà affiché : un bloc identique n'est pas réécrit (les pulsations ne repartent pas à zéro)
+		const shownHtml = { L: '', R: '', turn: '', info: new Map() };
 
-		const teamOf = (key) => KB.team(key === 'A' ? KB.rep.match.value.teamA : key === 'B' ? KB.rep.match.value.teamB : null);
-		const color = (key) => { const t = teamOf(key); return (t && t.color) || (key === 'B' ? '#ff4655' : '#3b8fe6'); };
+		const steps = () => (KB.rep.veto.value || {}).steps || [];
+		const teamOf = (key) => { const m = KB.rep.match.value || {}; return KB.team(key === 'A' ? m.teamA : key === 'B' ? m.teamB : null); };
+		const color = (key) => KB.teamColor(teamOf(key), key);
 		const short = (t, key) => (t ? t.tag || t.name : 'Équipe ' + (key || '?'));
-		const sideTeamOf = (steps, i) => steps[i].sideTeam || M.defaultSideTeam(steps, i);
+		const sideTeamOf = (list, i) => list[i].sideTeam || M.defaultSideTeam(list, i);
+
+		const fitTeam = (el) => KB.fit(el, { max: 52, min: 34, wrap: true });
+		const fitCard = (el) => KB.fit(el, { max: cardW > 200 ? 46 : 36, min: 20, wrap: false });
+		const fitWho = (el) => KB.fit(el, { max: 40, min: 28, wrap: false });
 
 		function renderTeams(st) {
 			const sides = KB.sides();
-			const steps = KB.rep.veto.value.steps || [];
-			const turnKey = st.pendingSide >= 0 ? sideTeamOf(steps, st.pendingSide) : st.next && st.next.team;
-			for (const [el, team, key] of [[KB.$('#teamL'), sides.left, sides.leftKey], [KB.$('#teamR'), sides.right, sides.rightKey]]) {
+			const list = steps();
+			const turnKey = st.pendingSide >= 0 ? sideTeamOf(list, st.pendingSide) : st.next && st.next.team;
+			for (const [side, team, key] of [['L', sides.left, sides.leftKey], ['R', sides.right, sides.rightKey]]) {
+				const el = KB.$('#team' + side);
 				el.style.setProperty('--c', color(key));
 				el.classList.toggle('is-turn', !!turnKey && turnKey === key);
-				el.innerHTML = `<div class="logo">${KB.teamLogo(team, 110)}</div>
+				const html = `<div class="logo">${KB.teamLogo(team, 110)}</div>
 					<div class="txt"><div class="name">${KB.esc(team ? team.name : 'Équipe ' + key)}</div>
 					<div class="sub">${team && team.tag ? KB.esc(team.tag) + ' · ' : ''}Équipe ${key}</div>
 					<span class="kb-pill turn">À son tour</span></div>`;
-				M.fit(el.querySelector('.name'), 52, 34, true);
+				if (html === shownHtml[side]) continue;
+				shownHtml[side] = html;
+				el.innerHTML = html;
+				fitTeam(el.querySelector('.name'));
 			}
 		}
 
-		function cardState(map, steps) {
-			const i = steps.findIndex((s) => s.map === map);
+		function cardState(map, list) {
+			const i = list.findIndex((s) => s.map === map);
 			if (i < 0) return { key: 'idle', i };
-			const s = steps[i];
+			const s = list[i];
 			return { key: `${s.action}|${s.team}|${s.side || ''}|${s.sideTeam || ''}`, i, s };
 		}
 
 		function buildCards(pool) {
 			const n = pool.length;
-			const w = Math.min(240, Math.floor((1792 - 20 * (n - 1)) / Math.max(n, 1)));
+			cardW = Math.min(240, Math.floor((1792 - 20 * (n - 1)) / Math.max(n, 1)));
 			const box = KB.$('#cards');
-			box.innerHTML = pool.map((m, i) => `<div class="cardWrap kb-anim kb-anim--pop" style="--i:${2 + i};--w:${w}px">
+			box.innerHTML = pool.map((m, i) => `<div class="cardWrap kb-anim kb-anim--pop" style="--i:${2 + i};--w:${cardW}px">
 				<div class="card idle" data-map="${KB.esc(m)}"><div class="img"></div><div class="shade"></div><div class="slash"></div><div class="flash"></div><div class="gl m-glint" style="--gd:${3 + i * 0.9}s"></div><div class="border"></div>
 				<div class="top"><span class="num"></span><span class="tag"></span></div>
 				<div class="bottom"><div class="name">${KB.esc(m)}</div><div class="info"></div></div></div></div>`).join('');
 			KB.$$('.card', box).forEach((c) => {
 				const d = KB.map(c.dataset.map);
-				if (d) c.querySelector('.img').style.backgroundImage = `url("${d.listViewTall || d.splash}")`;
-				M.fit(c.querySelector('.name'), w > 200 ? 46 : 36, 20);
+				if (d) c.querySelector('.img').style.backgroundImage = 'url(' + JSON.stringify(String(d.listViewTall || d.splash)) + ')';
+				fitCard(c.querySelector('.name'));
 			});
+			shownHtml.info.clear();
 			KB.$('#empty').style.display = n ? 'none' : 'block';
 		}
 
 		function renderCards(animate) {
-			const steps = KB.rep.veto.value.steps || [];
-			const order = steps.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
+			const list = steps();
+			const order = list.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
 			const next = {};
 			for (const c of KB.$$('#cards .card')) {
 				const map = c.dataset.map;
-				const cs = cardState(map, steps);
+				const cs = cardState(map, list);
 				next[map] = cs.key;
 				c.classList.remove('idle', 'ban', 'pick', 'decider');
 				c.classList.add(cs.s ? cs.s.action : 'idle');
 				const num = c.querySelector('.num'), tag = c.querySelector('.tag'), info = c.querySelector('.info');
+				let html = '';
 				if (!cs.s) {
-					num.textContent = ''; tag.textContent = ''; info.innerHTML = '';
+					num.textContent = ''; tag.textContent = '';
 				} else {
 					const s = cs.s, t = teamOf(s.team);
 					c.style.setProperty('--c', color(s.team));
 					num.textContent = '#' + (cs.i + 1);
 					tag.textContent = s.action === 'ban' ? 'Ban' : s.action === 'decider' ? 'Decider' : 'Map ' + (order.indexOf(map) + 1);
-					let html = s.action === 'decider'
+					html = s.action === 'decider'
 						? `<div class="by" style="color:var(--kb-gold-hi)">Map ${order.indexOf(map) + 1}</div>`
 						: `<div class="by">${KB.teamLogo(t, 40)}<span>${s.action === 'ban' ? 'Ban' : 'Pick'} ${KB.esc(short(t, s.team))}</span></div>`;
 					if (s.action !== 'ban') {
-						const sk = sideTeamOf(steps, cs.i);
+						const sk = sideTeamOf(list, cs.i);
 						html += s.side
 							? `<div class="side"><b>${KB.esc(short(teamOf(sk), sk))}</b> en ${KB.esc((M.SIDE_FR[s.side] || s.side).toLowerCase())}</div>`
 							: `<div class="side wait">${KB.esc(short(teamOf(sk), sk))} choisit le côté</div>`;
 					}
-					info.innerHTML = html;
 				}
+				if (shownHtml.info.get(map) !== html) { shownHtml.info.set(map, html); info.innerHTML = html; }
 				if (animate && prevStates[map] !== undefined && prevStates[map] !== cs.key) {
-					c.classList.remove('just'); void c.offsetWidth; c.classList.add('just');
+					KB.restart(c, 'just');
 					setTimeout(() => c.classList.remove('just'), 1100);
 				}
 			}
@@ -231,11 +247,11 @@
 
 		function renderTurn(st) {
 			const el = KB.$('#turn');
-			const steps = KB.rep.veto.value.steps || [];
+			const list = steps();
 			let html, key;
 			if (st.pendingSide >= 0) {
-				const s = steps[st.pendingSide];
-				const sk = sideTeamOf(steps, st.pendingSide);
+				const s = list[st.pendingSide];
+				const sk = sideTeamOf(list, st.pendingSide);
 				const t = teamOf(sk);
 				el.style.setProperty('--c', color(sk));
 				html = `<span class="lbl">Choix du côté</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + sk)}</span><span class="act">sur ${KB.esc(s.map)}</span>`;
@@ -247,42 +263,50 @@
 				} else {
 					const t = teamOf(n.team);
 					el.style.setProperty('--c', color(n.team));
-					html = `<span class="lbl">Au tour de</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + n.team)}</span><span class="act ${n.action}">${n.action === 'ban' ? 'Ban' : 'Pick'}</span>`;
+					html = `<span class="lbl">Au tour de</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + n.team)}</span><span class="act ${KB.esc(n.action)}">${n.action === 'ban' ? 'Ban' : 'Pick'}</span>`;
 				}
 				key = 'step' + st.index;
 			} else {
-				const order = steps.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
+				const order = list.filter((s) => s.action !== 'ban' && s.map).map((s) => s.map);
 				html = `<span class="lbl">Veto terminé</span><span class="sep"></span><div class="series">${order.map((m, i) => `<span><small>Map ${i + 1}</small>${KB.esc(m)}</span>`).join('') || '<span>—</span>'}</div>`;
 				key = 'done';
 			}
-			el.innerHTML = html;
-			M.fit(el.querySelector('.who'), 40, 28);
-			if (prevTurn && key !== prevTurn && presence.visible) { el.classList.remove('swap-anim'); void el.offsetWidth; el.classList.add('swap-anim'); }
+			if (html !== shownHtml.turn) {
+				shownHtml.turn = html;
+				const body = KB.$('#turnIn');
+				body.innerHTML = html;
+				fitWho(body.querySelector('.who'));
+			}
+			if (prevTurn && key !== prevTurn && scene.visible) KB.restart(el, 'swap-anim');
 			prevTurn = key;
 		}
 
 		function render(fresh) {
 			const match = KB.rep.match.value || {};
-			const veto = KB.rep.veto.value || { pool: [], steps: [] };
+			const veto = KB.rep.veto.value || {};
 			const st = M.vetoState(veto, (plan.value && plan.value.sequence) || []);
-			KB.$('#kicker').textContent = [match.stage, KB.formatLabel(match.format)].filter(Boolean).join(' · ');
+			KB.$('#kicker').textContent = KB.joinDot(match.stage, KB.formatLabel(match.format));
 			const pool = veto.pool || [];
 			const pk = JSON.stringify(pool) + ((KB.rep.valorantData.value && KB.rep.valorantData.value.updatedAt) || 0);
 			if (fresh || pk !== poolKey) { poolKey = pk; buildCards(pool); prevStates = {}; }
+			if (fresh) shownHtml.L = shownHtml.R = shownHtml.turn = '';
 			renderTeams(st);
 			renderCards(!fresh);
 			renderTurn(st);
 		}
 
-		// Les polices arrivent parfois après le premier rendu : on réajuste les tailles de texte
-		document.fonts.ready.then(() => { if (shown) { poolKey = null; render(false); } });
+		// Polices chargées après le premier rendu : on réajuste seulement les tailles de texte (sans reconstruire)
+		document.fonts.ready.then(() => {
+			if (!scene.visible) return;
+			KB.$$('.team .name').forEach(fitTeam);
+			KB.$$('#cards .name').forEach(fitCard);
+			fitWho(KB.$('#turn .who'));
+		});
 
-		let shown = false;
 		KB.watch(['match', 'teams', 'veto', 'valorantData', plan, gfx], () => {
 			const vis = !!(gfx.value && gfx.value.veto && gfx.value.veto.visible);
-			if (vis && !shown) { shown = true; render(true); presence.show(); }
-			else if (!vis && shown) { shown = false; presence.hide(); }
-			else if (shown) render(false);
+			// Rendu d'apparition (scene.visible encore faux) : cartes reconstruites, entrées rejouées
+			scene.set(vis, () => render(!scene.visible));
 		});
 	</script>
 </body>

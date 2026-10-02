@@ -6,5 +6,12 @@ shots
 exports
 Medias
 .git
+.github
+docs
 *.log
 rtk.txt
+.env
+.env.*
+!.env.example
+eslint.config.js
+.editorconfig

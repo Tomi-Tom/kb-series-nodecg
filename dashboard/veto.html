@@ -2,18 +2,22 @@
 <html lang="fr">
 <head>
 	<meta charset="utf-8">
+	<title>Veto des maps</title>
+	<!--
+		Panneau Veto : déroulé du veto map par map (ban / pick / decider, choix du côté, annulation), séquence prévue et pool de maps.
+		Écrit les replicants `veto` (étapes jouées, pool) et `matchVeto` (préréglage et séquence prévue) ;
+		affiche / masque Veto, Versus et Récap du veto via KBO (replicant `matchGraphics`). N'envoie aucun message.
+	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
-		.bar { display: flex; gap: 4px; flex-wrap: wrap; }
-		.gfx { flex: 1; display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 6px; font-weight: 600; font-size: 12px; min-width: 0; }
-		.gfx span.l { flex: 1; }
-		.gfx button { padding: 6px 10px; font-size: 12px; min-width: 0; padding: 6px 8px; }
+		#ovBox { margin-top: 0; padding: 4px; }
+		#ovBox .name { font-weight: 600; }
 		.now { margin-top: 10px; padding: 10px 12px; border-radius: 6px; background: var(--panel-2); border-left: 4px solid var(--c, var(--gold)); }
 		.now .k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 		.now .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
 		.now .v .ban { color: var(--red); } .now .v .pick { color: var(--c); } .now .v .decider { color: var(--gold); }
 		.maps { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-top: 8px; }
-		.mb { position: relative; height: 64px; padding: 0; overflow: hidden; border: 2px solid var(--line); background: #000 center / cover no-repeat; text-align: left; }
+		.mb { position: relative; height: 64px; padding: 0; overflow: hidden; border: 2px solid var(--line); background: #000 var(--img, none) center / cover no-repeat; text-align: left; }
 		.mb::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 15, 46, .85), rgba(10, 15, 46, .3)); }
 		.mb > * { position: relative; }
 		.mb .nm { display: block; padding: 0 10px; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
@@ -43,24 +47,21 @@
 		.sq select { padding: 4px 6px; }
 		.pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 2px 8px; margin-top: 6px; }
 		.pool label { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 13px; cursor: pointer; }
-		.confirm { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--gold); }
-		.confirm button { padding: 6px 10px; }
-		.x { padding: 3px 8px; color: var(--muted); }
+		.sq button.x { padding: 3px 8px; }
+		.mt0 { margin-top: 0; }
+		.ptitle { font-size: 12px; color: var(--muted); margin: 0 0 3px; }
 	</style>
 </head>
 <body>
-	<div class="bar">
-		<div class="gfx"><span class="dot" id="dotVeto"></span><span class="l">Veto</span><button id="btnVeto"></button></div>
-		<div class="gfx"><span class="dot" id="dotVersus"></span><span class="l">Versus</span><button id="btnVersus"></button></div>
-		<div class="gfx"><span class="dot" id="dotRecap"></span><span class="l">Récap</span><button id="btnRecap"></button></div>
-	</div>
+	<!-- Écrans du veto : AFFICHER / ● À L'ANTENNE -->
+	<div class="card" id="ovBox"></div>
 
 	<div class="now" id="now"></div>
 	<div id="sideBox"></div>
 	<div class="maps" id="maps"></div>
 	<div class="row">
 		<button id="undo">↶ Annuler la dernière étape</button>
-		<span id="resetWrap" class="shrink"><button class="danger" id="reset">Reset veto</button></span>
+		<button class="danger shrink" id="reset">Réinitialiser le veto</button>
 	</div>
 	<div class="msg" id="msg"></div>
 
@@ -70,8 +71,8 @@
 	<details id="cfg">
 		<summary>Format du veto &amp; pool de maps</summary>
 		<div class="card">
-			<label>Préréglage</label>
-			<div class="row" style="margin-top:0">
+			<label for="preset">Préréglage</label>
+			<div class="row mt0">
 				<select id="preset"><option value="bo1">BO1 — ban ×6 + decider</option><option value="bo3">BO3 — ban, ban, pick, pick, ban, ban, decider</option><option value="bo5">BO5 — ban, ban, pick ×4, decider</option></select>
 				<button class="shrink" id="applyPreset">Appliquer</button>
 			</div>
@@ -80,7 +81,7 @@
 			<div class="row"><button id="addStep" class="shrink">+ Étape</button><span></span></div>
 		</div>
 		<div class="card">
-			<label style="margin-top:0">Pool de maps (<span id="poolCount"></span>)</label>
+			<div class="ptitle">Pool de maps (<span id="poolCount"></span>)</div>
 			<div class="pool" id="pool"></div>
 			<div class="hint">Les maps viennent de valorant-api (replicant valorantData). L'ordre d'affichage suit l'ordre alphabétique.</div>
 		</div>
@@ -88,32 +89,24 @@
 
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/match.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlays.js"></script>
 	<script>
 		const M = window.KBMatch;
-		const clone = (v) => JSON.parse(JSON.stringify(v));
-		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
-		const plan = nodecg.Replicant('matchVeto', { defaultValue: clone(M.MATCH_DEFAULTS.matchVeto) });
+		const plan = nodecg.Replicant('matchVeto', { defaultValue: KB.clone(M.MATCH_DEFAULTS.matchVeto) });
 		const $ = KB.$, esc = KB.esc;
 		const veto = () => KB.rep.veto.value;
 		const teamOf = (k) => KB.team(k === 'A' ? KB.rep.match.value.teamA : k === 'B' ? KB.rep.match.value.teamB : null);
 		const tag = (k) => { const t = teamOf(k); return t ? t.tag || t.name : 'Équipe ' + k; };
-		const color = (k) => { const t = teamOf(k); return (t && t.color) || (k === 'B' ? '#ff4655' : '#3b8fe6'); };
+		const color = (k) => KB.teamColor(teamOf(k), k);
 		const sideTeamOf = (steps, i) => steps[i].sideTeam || M.defaultSideTeam(steps, i);
 
-		function msg(text, cls = '') { const el = $('#msg'); el.textContent = text; el.className = 'msg ' + cls; clearTimeout(el._t); if (text) el._t = setTimeout(() => { el.textContent = ''; }, 5000); }
+		const msg = (text, kind = '') => KBD.flash('msg', text, kind, 5000);
 
-		/* ---------- Visibilité ---------- */
-		function renderGfx() {
-			for (const [k, btn, dot] of [['versus', '#btnVersus', '#dotVersus'], ['veto', '#btnVeto', '#dotVeto'], ['vetoRecap', '#btnRecap', '#dotRecap']]) {
-				const on = !!(gfx.value && gfx.value[k] && gfx.value[k].visible);
-				$(btn).textContent = on ? 'MASQUER' : 'AFFICHER';
-				$(btn).className = on ? 'danger' : 'show';
-				$(dot).classList.toggle('on', on);
-			}
-		}
-		$('#btnVersus').onclick = () => { gfx.value.versus.visible = !gfx.value.versus.visible; };
-		$('#btnVeto').onclick = () => { gfx.value.veto.visible = !gfx.value.veto.visible; };
-		$('#btnRecap').onclick = () => { gfx.value.vetoRecap = { visible: !(gfx.value.vetoRecap && gfx.value.vetoRecap.visible) }; };
+		/* ---------- Écrans (exclusivité gérée par KBO) ---------- */
+		const OVERLAYS = ['veto', 'versus', 'veto-recap'];
+		KBO.bind('#ovBox');
+		KB.watch(KBO.repNames(), () => { $('#ovBox').innerHTML = OVERLAYS.map((id) => KBO.row(id)).join(''); });
 
 		/* ---------- Déroulé ---------- */
 		function state() { return M.vetoState(veto(), plan.value.sequence || []); }
@@ -159,7 +152,7 @@
 					if (s.action !== 'ban' && s.side) label += ` · ${tag(sideTeamOf(steps, i))} ${s.side === 'attack' ? 'ATK' : 'DEF'}`;
 				} else if (blocked) cls += ' off';
 				const c = s ? (s.team ? color(s.team) : 'var(--gold)') : st.next && st.next.team ? color(st.next.team) : 'var(--gold)';
-				return `<button class="${cls}" data-map="${esc(m)}" ${s || blocked ? 'disabled' : ''} style="--c:${c};${d ? `background-image:url('${esc(d.listView)}')` : ''}"><span class="nm">${esc(m)}</span><span class="st">${esc(label)}</span></button>`;
+				return `<button class="${cls}" data-map="${esc(m)}" ${s || blocked ? 'disabled' : ''} style="--c:${esc(c)};${d ? `--img:url('${esc(d.listView)}')` : ''}"><span class="nm">${esc(m)}</span><span class="st">${esc(label)}</span></button>`;
 			}).join('') || '<div class="empty">Pool vide : ouvre « Format du veto & pool de maps ».</div>';
 
 			$('#undo').disabled = !steps.length;
@@ -177,7 +170,7 @@
 			for (let i = seq.length; i < steps.length; i++) rows.push(`<div class="hs"><span class="i">${i + 1}</span><span class="a ${steps[i].action}">${M.ACTION_FR[steps[i].action]}</span><span class="m">${esc(steps[i].map || '—')}</span></div>`);
 			$('#hist').innerHTML = rows.join('');
 
-			renderCfg();
+			safeRenderCfg();
 		}
 
 		function addStep(map) {
@@ -202,29 +195,19 @@
 			if (last.action !== 'ban' && last.side) { last.side = null; msg('Choix du côté annulé.'); }
 			else { steps.pop(); msg(`Étape annulée : ${M.ACTION_FR[last.action]} ${last.map || ''}.`); }
 		};
-		function bindReset() {
-			$('#reset').onclick = () => {
-				const wrap = $('#resetWrap'), orig = wrap.innerHTML;
-				wrap.innerHTML = '<span class="confirm">Effacer tout le veto ? <button class="danger" data-y>Oui</button><button data-n>Non</button></span>';
-				const restore = () => { clearTimeout(t); wrap.innerHTML = orig; bindReset(); };
-				const t = setTimeout(restore, 6000);
-				wrap.querySelector('[data-y]').onclick = () => { veto().steps = []; restore(); msg('Veto réinitialisé.', 'ok'); };
-				wrap.querySelector('[data-n]').onclick = restore;
-			};
-		}
-		bindReset();
+		KBD.confirm('#reset', () => { veto().steps = []; msg('Veto réinitialisé.', 'ok'); }, { label: 'Effacer tout le veto ?' });
 
 		/* ---------- Configuration ---------- */
-		let cfgFocus = false;
+		// Le menu Préréglage ne suit le replicant que lorsque celui-ci change : un choix en attente d'« Appliquer » est gardé
+		let shownFormat = null;
 		function renderCfg() {
-			if ($('#cfg').contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
 			const seq = plan.value.sequence || [];
-			$('#preset').value = plan.value.format || 'bo3';
+			if (plan.value.format !== shownFormat) { shownFormat = plan.value.format; $('#preset').value = shownFormat || 'bo3'; }
 			const pool = veto().pool || [];
 			$('#seq').innerHTML = seq.map((p, i) => `<div class="sq" data-i="${i}"><span>${i + 1}</span>
-				<select data-k="action">${['ban', 'pick', 'decider'].map((a) => `<option value="${a}" ${a === p.action ? 'selected' : ''}>${M.ACTION_FR[a]}</option>`).join('')}</select>
-				<select data-k="team" ${p.action === 'decider' ? 'disabled' : ''}>${p.action === 'decider' ? '<option>—</option>' : ['A', 'B'].map((t) => `<option value="${t}" ${t === p.team ? 'selected' : ''}>Équipe ${t} (${esc(tag(t))})</option>`).join('')}</select>
-				<button class="x" data-del>✕</button></div>`).join('');
+				<select data-k="action" aria-label="Action de l'étape ${i + 1}">${['ban', 'pick', 'decider'].map((a) => `<option value="${a}" ${a === p.action ? 'selected' : ''}>${M.ACTION_FR[a]}</option>`).join('')}</select>
+				<select data-k="team" aria-label="Équipe de l'étape ${i + 1}" ${p.action === 'decider' ? 'disabled' : ''}>${p.action === 'decider' ? '<option>—</option>' : ['A', 'B'].map((t) => `<option value="${t}" ${t === p.team ? 'selected' : ''}>Équipe ${t} (${esc(tag(t))})</option>`).join('')}</select>
+				<button class="x" data-del title="Retirer l'étape">✕</button></div>`).join('');
 			const bans = seq.filter((s) => s.action === 'ban').length, chosen = seq.length - bans;
 			$('#seqHint').textContent = `${seq.length} étapes (${bans} ban, ${chosen} pick/decider) pour un pool de ${pool.length} maps`
 				+ (seq.length > pool.length ? ' — attention : plus d\'étapes que de maps !' : seq.length < pool.length ? ` — ${pool.length - seq.length} map(s) ne seront pas jouées ni bannies.` : '.');
@@ -232,8 +215,13 @@
 			$('#pool').innerHTML = all.map((m) => `<label><input type="checkbox" value="${esc(m)}" ${pool.includes(m) ? 'checked' : ''}> ${esc(m)}</label>`).join('');
 			$('#poolCount').textContent = `${pool.length} sélectionnée${pool.length > 1 ? 's' : ''}`;
 		}
-		$('#preset').onchange = (e) => { plan.value = { format: e.target.value, sequence: clone(M.VETO_PRESETS[e.target.value]) }; msg(`Préréglage ${e.target.value.toUpperCase()} appliqué.`, 'ok'); };
-		$('#applyPreset').onclick = () => { const f = $('#preset').value; plan.value = { format: f, sequence: clone(M.VETO_PRESETS[f]) }; msg(`Préréglage ${f.toUpperCase()} appliqué.`, 'ok'); };
+		const applyPreset = () => { const f = $('#preset').value; plan.value = { format: f, sequence: KB.clone(M.VETO_PRESETS[f]) }; msg(`Préréglage ${f.toUpperCase()} appliqué.`, 'ok'); };
+		// En plein veto, remplacer la séquence demande confirmation
+		$('#applyPreset').onclick = (e) => {
+			const btn = e.currentTarget;
+			if ((veto().steps || []).length || btn.classList.contains('armed')) KBD.arm(btn, applyPreset, { label: 'Veto en cours : remplacer ?' });
+			else applyPreset();
+		};
 		$('#seq').addEventListener('change', (e) => {
 			const row = e.target.closest('.sq'); if (!row) return;
 			const p = plan.value.sequence[+row.dataset.i];
@@ -248,7 +236,9 @@
 			veto().pool = checked;
 		});
 
-		KB.watch(['match', 'teams', 'veto', 'valorantData', plan, gfx], () => { renderGfx(); render(); });
+		// Une étape de la séquence en cours de modification n'est pas réécrite sous la souris
+		const safeRenderCfg = KBD.deferWhileEditing('#seq', renderCfg);
+		KB.watch(['match', 'teams', 'veto', 'valorantData', plan], render);
 	</script>
 </body>
 </html>

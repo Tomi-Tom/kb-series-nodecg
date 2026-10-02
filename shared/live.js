@@ -90,4 +90,4 @@
 
 	if (typeof module !== 'undefined' && module.exports) module.exports = LIVE;
 	else root.LIVE = LIVE;
-})(this);
+})(typeof window !== 'undefined' ? window : globalThis);

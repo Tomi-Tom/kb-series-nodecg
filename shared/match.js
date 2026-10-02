@@ -25,8 +25,6 @@
 	};
 
 	const STAGES = ['Phase de groupes', 'Quart de finale', 'Demi-finale', 'Petite finale', 'Grande finale'];
-	const ROLES = ['Duelist', 'Initiator', 'Controller', 'Sentinel', 'Flex', 'IGL', 'Coach'];
-	const ROLE_FR = { Duelist: 'Duelliste', Initiator: 'Initiateur', Controller: 'Contrôleur', Sentinel: 'Sentinelle', Flex: 'Flex', IGL: 'IGL', Coach: 'Coach' };
 	const ACTION_FR = { ban: 'Ban', pick: 'Pick', decider: 'Decider' };
 	const SIDE_FR = { attack: 'Attaque', defense: 'Défense' };
 
@@ -57,23 +55,17 @@
 		return other(prev && prev.team) || 'A';
 	}
 
-	/** Réduit la taille de police d'un élément (une ligne) jusqu'à ce qu'il tienne dans sa largeur. */
-	//  wrap = true : si le texte ne tient toujours pas à la taille mini, on l'autorise à passer sur 2 lignes.
-	function fit(el, max, min = 16, wrap = false) {
-		if (!el) return;
-		let size = max;
-		el.style.whiteSpace = 'nowrap';
-		el.style.fontSize = size + 'px';
-		while (size > min && el.scrollWidth > el.clientWidth + 1) { size -= 2; el.style.fontSize = size + 'px'; }
-		if (wrap && el.scrollWidth > el.clientWidth + 1) {
-			el.style.whiteSpace = 'normal';
-			// 2 lignes max (line-clamp côté CSS) : on réduit encore si le texte déborde en hauteur
-			const floor = Math.round(min * 0.7);
-			while (size > floor && el.scrollHeight > el.clientHeight + 2) { size -= 2; el.style.fontSize = size + 'px'; }
-		}
-	}
 
-	const api = { fit, VETO_PRESETS, MATCH_DEFAULTS, STAGES, ROLES, ROLE_FR, ACTION_FR, SIDE_FR, needsSide, vetoState, other, defaultSideTeam };
+	// Replicants de la partie (navigateur), déclarés une seule fois avec leur valeur par défaut
+	const clone = (v) => JSON.parse(JSON.stringify(v));
+	const reps = {};
+	const declare = (name) => (reps[name] ||= root.nodecg.Replicant(name, { defaultValue: clone(MATCH_DEFAULTS[name]) }));
+	/** Replicant matchGraphics (visibilité de versus, veto, veto-recap). Ex. KBMatch.gfx().value.veto.visible */
+	const gfx = () => declare('matchGraphics');
+	/** Replicant matchVeto (déroulé prévu du veto : { format, sequence }) */
+	const vetoPlan = () => declare('matchVeto');
+
+	const api = { gfx, vetoPlan, VETO_PRESETS, MATCH_DEFAULTS, STAGES, ACTION_FR, SIDE_FR, needsSide, vetoState, other, defaultSideTeam };
 	if (typeof module !== 'undefined' && module.exports) module.exports = api;
 	else root.KBMatch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

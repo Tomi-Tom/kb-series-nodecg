@@ -17,7 +17,7 @@
 
 		if (type === 'ping') {
 			// Répond directement (pas besoin de réveiller le service worker) : < 300 ms garanti
-			let alive = true;
+			let alive;
 			try { alive = !!chrome.runtime.id; } catch { alive = false; }
 			if (alive) reply(id, { type: 'pong', version });
 			return;

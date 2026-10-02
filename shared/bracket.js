@@ -18,8 +18,8 @@
 		},
 	});
 
-	B.ROUND_LABELS = { quarters: 'Quart de finale', semis: 'Demi-finale', third: 'Petite finale', final: 'Grande finale' };
-	B.shortLabel = (round, i) => ({ quarters: 'QF' + (i + 1), semis: 'DF' + (i + 1), third: 'Petite finale', final: 'Grande finale' }[round]);
+	// Valeur par défaut du replicant bracketGraphics
+	B.GRAPHICS_DEFAULT = { groups: { visible: false }, bracket: { visible: false }, highlightLive: true };
 
 	const num = (x) => (Number.isFinite(+x) ? +x : 0);
 
@@ -88,35 +88,6 @@
 		for (let r = 0; r < depth && seeds.length < 8; r++) for (const x of g) if (x[r] && seeds.length < 8) seeds.push(x[r]);
 		const sd = (i) => seeds[i] || null;
 		return [[sd(0), sd(7)], [sd(3), sd(4)], [sd(1), sd(6)], [sd(2), sd(5)]];
-	};
-
-	/** Données de démo cohérentes avec les 8 équipes de `demo:seed` et le planning de démo. */
-	B.demoBracket = () => {
-		const row = (id, w, l, rw, rl) => ({ id, w, l, rw, rl });
-		const bk = B.defaultBracket();
-		bk.qualify = 4; // 2 groupes de 4 : tout le monde va en quarts, les groupes servent au placement
-		bk.groups = [
-			{ name: 'Groupe A', teams: [row('epx', 3, 0, 39, 21), row('cyr', 2, 1, 34, 30), row('or5', 1, 2, 29, 35), row('sf', 0, 3, 22, 38)] },
-			{ name: 'Groupe B', teams: [row('nvr', 3, 0, 39, 25), row('kk', 2, 1, 36, 28), row('bb', 1, 2, 30, 33), row('pph', 0, 3, 20, 39)] },
-		];
-		const m = B.emptyMatch;
-		bk.playoffs = {
-			quarters: [
-				m({ a: 'epx', b: 'pph', scoreA: 2, scoreB: 0, winner: 'a', status: 'done', time: '10:00' }),
-				m({ a: 'kk', b: 'or5', scoreA: 2, scoreB: 1, winner: 'a', status: 'done', time: '11:30' }),
-				m({ a: 'nvr', b: 'sf', scoreA: 2, scoreB: 1, winner: 'a', status: 'done', time: '10:00' }),
-				m({ a: 'cyr', b: 'bb', scoreA: 2, scoreB: 1, winner: 'a', status: 'done', time: '11:30' }),
-			],
-			semis: [
-				m({ scoreA: 1, scoreB: 0, status: 'live', time: '14:00' }),
-				m({ time: '15:30' }),
-			],
-			third: m({ time: '17:00' }),
-			final: m({ time: '18:30' }),
-		};
-		// Quarts terminés, DF1 EPX-KK en cours (1-0), DF2 NVR-CYR à venir (cohérent avec le planning de démo)
-		B.propagate(bk);
-		return bk;
 	};
 
 	if (typeof module !== 'undefined' && module.exports) module.exports = B;

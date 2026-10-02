@@ -4,7 +4,7 @@
    et du langage Valorant (coupes angulaires, typo condensée, rouge #ff4655).
    Import : <link rel="stylesheet" href="../shared/theme.css">
    ========================================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap');
+@import url('fonts.css');
 
 :root {
 	/* Fonds : nuit indigo de l'affiche */
@@ -33,12 +33,9 @@
 	--kb-text: #f3f1ea;
 	--kb-muted: #8e9ac8;
 	--kb-line: rgba(140, 170, 255, .16);
+	--kb-ink: #1a1430;  /* texte sur fond or (pastilles, badges) */
 
-	/* États */
-	--kb-win: #3ddc97;
-	--kb-loss: #ff4655;
-
-	/* Couleurs d'équipe par défaut (écrasées par team.color) */
+	/* Couleurs d'équipe par défaut (écrasées par team.color ; mêmes valeurs que KB.TEAM_COLORS) */
 	--team-a: #3b8fe6;
 	--team-b: #ff4655;
 
@@ -65,7 +62,7 @@
 /* ---------- Fond plein écran (scènes) ----------
    <div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__stars"></div></div> */
 .kb-bg { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, var(--kb-night-3) 0%, var(--kb-night-1) 45%, var(--kb-night-0) 100%); }
-.kb-bg__art { position: absolute; inset: -30px; background: url('img/poster-art.png') center 30% / cover no-repeat; opacity: .55; filter: saturate(1.1); }
+.kb-bg__art { position: absolute; inset: -30px; background: url('img/poster-art.webp') center 30% / cover no-repeat; opacity: .55; filter: saturate(1.1); }
 .kb-bg__art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 6, 26, .2) 0%, rgba(4, 6, 26, .75) 55%, var(--kb-night-0) 100%); }
 .kb-bg__stars {
 	position: absolute; inset: 0; opacity: .7;
@@ -104,12 +101,11 @@
 /* Panneau "verre nuit" bordé bleu, coins coupés Valorant */
 .kb-panel {
 	position: relative; background: linear-gradient(160deg, rgba(27, 35, 102, .72), rgba(10, 15, 46, .88));
-	border: 1px solid rgba(94, 196, 255, .35); backdrop-filter: blur(8px);
+	border: 1px solid rgba(94, 196, 255, .35);
 	clip-path: polygon(var(--kb-cut) 0, 100% 0, 100% calc(100% - var(--kb-cut)), calc(100% - var(--kb-cut)) 100%, 0 100%, 0 var(--kb-cut));
 }
 /* Panneau arrondi bleu comme le bloc "phases" de l'affiche */
 .kb-panel--round { clip-path: none; border-radius: 36px; border: 3px solid rgba(94, 196, 255, .65); box-shadow: 0 0 30px rgba(78, 170, 255, .2), inset 0 0 40px rgba(78, 170, 255, .08); }
-.kb-panel--solid { background: var(--kb-night-1); backdrop-filter: none; }
 
 /* Liseré lumineux (ligne bleue avec pointes, comme sous "TOURNOI 5v5") */
 .kb-rule { height: 4px; background: linear-gradient(90deg, transparent, var(--kb-blue) 15%, var(--kb-blue-hi) 50%, var(--kb-blue) 85%, transparent); border-radius: 4px; box-shadow: 0 0 12px var(--kb-blue-glow); }
@@ -119,10 +115,6 @@
 .kb-kicker { font: 700 20px var(--kb-ui); letter-spacing: .32em; text-transform: uppercase; color: var(--kb-gold); }
 .kb-label { font: 600 16px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; color: var(--kb-muted); }
 .kb-title { font: 400 120px/0.92 var(--kb-display); text-transform: uppercase; letter-spacing: .01em; }
-.kb-value { font: 400 64px/1 var(--kb-display); }
-.kb-num { font-family: var(--kb-num); font-weight: 700; }
-.kb-accent { color: var(--kb-blue-hi); }
-.kb-gold-text { color: var(--kb-gold); }
 
 /* Néon orange (titre "INSCRIPTION") */
 .kb-neon {
@@ -132,7 +124,7 @@
 }
 
 /* Pastille dorée ("ONLINE", "PRÉSENTIEL CAMPUS KB") */
-.kb-pill { display: inline-block; padding: 6px 26px; border-radius: 10px; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); color: #1a1430; font: 700 18px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; }
+.kb-pill { display: inline-block; padding: 6px 26px; border-radius: 10px; background: linear-gradient(180deg, #d8c287, var(--kb-gold)); color: var(--kb-ink); font: 700 18px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; }
 .kb-pill--blue { background: linear-gradient(180deg, var(--kb-blue-hi), var(--kb-blue)); color: #04061a; }
 .kb-pill--live { background: var(--kb-red); color: #fff; }
 
@@ -159,9 +151,20 @@
 @keyframes kb-from-right { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
 @keyframes kb-pop { 0% { opacity: 0; transform: scale(.8); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
 @keyframes kb-fade-out { to { opacity: 0; transform: translateY(-10px); } }
+/* Une fois installé (.kb-settled, voir KB.scene), un re-rendu ne rejoue plus les entrées */
+.kb-settled .kb-anim { opacity: 1; animation: none; }
+
+/* Écran plein écran géré par KB.scene : fondu global + entrées .kb-anim */
+.kb-scene { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
+.kb-scene.kb-in { opacity: 1; }
+.kb-scene.kb-out { opacity: 0; transition-duration: .4s; }
+
+/* Overlay masqué (posé par KB.presence / KB.scene) : boucles d'ambiance en pause, rien à calculer pour l'invisible */
+.kb-idle, .kb-idle::before, .kb-idle::after, .kb-idle *, .kb-idle *::before, .kb-idle *::after { animation-play-state: paused !important; }
 
 /* Reflet qui balaye (logo, titres) */
 .kb-shine { position: relative; overflow: hidden; }
-.kb-shine::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent); transform: skewX(-20deg); animation: kb-shine 4s ease-in-out infinite; }
-@keyframes kb-shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+.kb-shine::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent); transform: translateX(-150%) skewX(-20deg); animation: kb-shine 4s ease-in-out infinite; }
+/* Translations en % de la largeur du reflet (40 % du bloc) : de -60 % à +130 % du bloc */
+@keyframes kb-shine { 0%, 60% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(325%) skewX(-20deg); } }
 

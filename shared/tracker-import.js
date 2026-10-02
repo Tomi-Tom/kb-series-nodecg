@@ -8,8 +8,6 @@
 //        opts.playlist                : 'competitive' (défaut)
 //        ⚠ à appeler directement dans le gestionnaire de clic (ouverture d'onglet autorisée en mode manuel).
 //        Entrée invalide → { ok:false, riotId:null, via:null, message }.
-//   KBI.requestMany(list, onProgress) → Promise<result[]>      (list = Riot IDs / liens / { riotId })
-//        onProgress({ done, total, current, result?, status? })
 //   KBI.trackerUrl(riotId), KBI.apiUrl(riotId), KBI.bookmarklet(origin?) (code javascript: du favori de secours)
 (function () {
 	const PAGE = 'kb-tracker-page';
@@ -32,10 +30,15 @@
 	KBI.trackerUrl = (riotId) => 'https://tracker.gg/valorant/profile/riot/' + encodeURIComponent(riotId) + '/overview';
 	KBI.apiUrl = (riotId) => 'https://api.tracker.gg/api/v2/valorant/standard/profile/riot/' + encodeURIComponent(riotId) + '?source=web';
 
-	/** Code du favori « ⇪ Envoyer à NodeCG » (identique à celui du panneau Stats joueur) */
+	/**
+	 * Lien javascript: du favori « ⇪ Envoyer à NodeCG » (à mettre dans le href d'un <a class="bookmarklet">).
+	 * Exécuté sur la page tracker.gg d'un profil : lit le JSON de l'API avec la session tracker.gg du navigateur,
+	 * ouvre la petite page tracker-receiver de NodeCG et le lui envoie par postMessage depuis la page tracker.gg
+	 * (la page réceptrice n'accepte que les messages venant de https://tracker.gg).
+	 */
 	KBI.bookmarklet = (origin = location.origin) => {
 		const receiver = origin + '/valorant-tournament/tracker-receiver';
-		const bm = `(async()=>{const m=location.pathname.match(/profile\\/riot\\/([^/]+)/);if(!m){alert('Ouvre un profil Valorant sur tracker.gg');return}`
+		const bm = `(async()=>{const m=location.hostname==='tracker.gg'&&location.pathname.match(/profile\\/riot\\/([^/]+)/);if(!m){alert('Ouvre un profil Valorant sur tracker.gg');return}`
 			+ `const pl=new URLSearchParams(location.search).get('playlist')||'competitive';`
 			+ `const w=window.open('${receiver}','ncg_import','width=460,height=200');let j=null,sent=false;`
 			+ `const send=()=>{if(j&&!sent&&w){sent=true;w.postMessage({type:'tracker-json',data:j,playlist:pl},'*')}};`
@@ -83,10 +86,8 @@
 		});
 	}
 
-	function manual(riotId, win) {
-		const url = KBI.trackerUrl(riotId);
-		let w = win;
-		if (w) { try { w.location.href = url; } catch { w = null; } } else w = window.open(url, '_blank');
+	function manual(riotId) {
+		const w = window.open(KBI.trackerUrl(riotId), '_blank');
 		return {
 			ok: false, riotId, via: 'manual',
 			message: w
@@ -106,33 +107,6 @@
 		}
 		if (known === true || (await KBI.hasExtension())) return viaExtension(riotId, opts);
 		return manual(riotId); // < 300 ms après le clic : toujours dans la fenêtre d'activation utilisateur
-	};
-
-	KBI.requestMany = async (list, onProgress) => {
-		const ids = (list || []).map((x) => (x && typeof x === 'object' ? x.riotId : x)).map(KBI.parseRiotId).filter(Boolean)
-			.filter((id, i, a) => a.findIndex((y) => y.toLowerCase() === id.toLowerCase()) === i);
-		const total = ids.length;
-		const results = [];
-		const progress = (o) => { if (onProgress) try { onProgress({ done: results.length, total, ...o }); } catch { /* ignore */ } };
-		if (!total) return results;
-		const ext = known === true || (known !== false && (await KBI.hasExtension()));
-		if (!ext) {
-			// Sans extension : un onglet par joueur (le navigateur peut bloquer les suivants → message dédié)
-			for (const id of ids) {
-				const r = manual(id);
-				results.push(r);
-				progress({ current: id, result: r });
-			}
-			KBI.hasExtension();
-			return results;
-		}
-		for (const id of ids) {
-			progress({ current: id });
-			const r = await viaExtension(id, { onStatus: (s) => progress({ current: id, status: s }) });
-			results.push(r);
-			progress({ current: id, result: r });
-		}
-		return results;
 	};
 
 	// Ping initial : la décision extension / manuel est ensuite immédiate au clic

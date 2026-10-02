@@ -2,6 +2,12 @@
 <html lang="fr">
 <head>
 	<meta charset="utf-8">
+	<title>Régie</title>
+	<!--
+		Régie : tableau de bord du direct (transition, scène de fond, AFFICHER / masquer chaque overlay, lower thirds rapides).
+		Écrit : streamScene, transition, les booléens « visible » des overlays (via KBO), liveLowerThird (via KBLT).
+		N'envoie aucun message : rien ici ne touche aux données (elles sont dans le panneau « Données »).
+	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
 		.match { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
@@ -10,22 +16,30 @@
 		.match .s { font: 800 22px 'Segoe UI', sans-serif; color: var(--gold); }
 		.sub { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
 		.group { margin-top: 4px; }
-		.item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; }
-		.item:nth-child(odd) { background: rgba(255, 255, 255, .025); }
-		.item .name { flex: 1; }
-		.item .name small { display: block; color: var(--muted); font-size: 11px; }
-		.item button { min-width: 108px; padding: 6px 10px; }
-		.item button.on { background: var(--ok); border-color: var(--ok); color: #0a0f2e; }
+		.ovgroup { margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .12em; }
 		.urls { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 		.urls .u { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 		.urls .u span { flex: 1; color: var(--muted); }
 		.urls .u button { padding: 3px 8px; font-size: 11px; }
-		label.inline { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-top: 8px; }
-		h3 .right { float: right; }
+		.row > label { margin: 0; }
+		#via { flex: 2; }
+		#trMapSel { margin-top: 6px; }
 		.tr-card label { margin-top: 8px; }
 		.tr-card label:first-child { margin-top: 0; }
 		#trType button.sel { background: var(--blue); border-color: var(--blue); color: #fff; }
 		.tr-go { width: 100%; margin-top: 10px; padding: 14px; font-size: 15px; letter-spacing: .06em; }
+		/* Lower thirds rapides (KBLT, version compacte) */
+		.ltc { padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; }
+		.ltc-head { display: flex; align-items: center; gap: 6px; }
+		.ltc-head b { font-size: 11px; letter-spacing: .14em; color: var(--blue); width: 52px; flex: 0 0 auto; }
+		.ltc-head select { flex: 1; min-width: 0; padding: 5px 6px; }
+		.ltc-head select.ltc-style { flex: 0 0 112px; }
+		.ltc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+		.ltc-fields input { padding: 5px 7px; }
+		.ltc-btns { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+		.ltc-btns button { padding: 5px 10px; }
+		.ltc-btns .ltc-state { flex: 1; font-size: 11px; color: var(--muted); }
+		.ltc-btns .ltc-state.lt-dirty { color: var(--gold); }
 	</style>
 </head>
 <body>
@@ -37,25 +51,27 @@
 	<div class="card tr-card">
 		<label>1. Type</label>
 		<div class="grid2" id="trType">
-			<button data-type="logo">Logo seul</button>
-			<button data-type="map">Logo + map</button>
+			<button type="button" data-type="logo">Logo seul</button>
+			<button type="button" data-type="map">Logo + map</button>
 		</div>
-		<select id="trMapSel" style="margin-top:6px"></select>
-		<label>2. Vers</label>
+		<label class="vh" for="trMapSel">Map de la transition</label>
+		<select id="trMapSel"></select>
+		<label for="trDest">2. Vers</label>
 		<select id="trDest"></select>
-		<button class="gold tr-go" id="trGo">▶ LANCER LA TRANSITION</button>
+		<button type="button" class="gold tr-go" id="trGo">▶ LANCER LA TRANSITION</button>
 		<div class="hint" id="trInfo"></div>
 		<div class="msg" id="trMsg"></div>
 	</div>
 
 	<h3>Sans transition</h3>
-	<div class="row"><button class="danger" id="clearScreen">Tout effacer de l'écran</button></div>
+	<div class="row"><button type="button" class="danger" id="clearScreen">Tout masquer · retour au jeu</button></div>
 	<div class="hint">Masque tous les overlays et repasse sur le jeu. Les données ne sont pas touchées.</div>
 	<label>Scène de fond (page stream.html)</label>
 	<div class="grid3" id="scenes"></div>
+	<div class="hint">Une scène autre que « Jeu » masque d'abord les overlays plein écran (ils passeraient devant).</div>
 	<div class="row">
-		<label class="inline" style="margin:0">Passage :</label>
-		<select id="via" style="flex:2">
+		<label class="chk" for="via">Passage :</label>
+		<select id="via">
 			<option value="fade">Fondu</option>
 			<option value="cut">Coupe sèche</option>
 		</select>
@@ -63,114 +79,13 @@
 
 	<h3>Overlays</h3>
 	<div id="groups"></div>
-	<label class="inline"><input type="checkbox" id="exclusive" checked> Un seul plein écran à la fois (masque les autres automatiquement)</label>
+	<label class="chk"><input type="checkbox" id="exclusive"> Un seul plein écran à la fois (masque les autres automatiquement)</label>
 	<div class="hint">Les réglages détaillés (textes, joueurs, MVP…) sont dans leurs panneaux : onglets « 1. Match & Joueurs » et « 2. Écrans & Tournoi ».</div>
 
-	<!-- L3:BEGIN (bloc lower thirds rapide — géré par la partie "live") -->
 	<h3>Lower thirds rapides</h3>
-	<style>
-		.l3q-side { padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; }
-		.l3q-head { display: flex; align-items: center; gap: 6px; }
-		.l3q-head b { font-size: 11px; letter-spacing: .14em; color: var(--blue); width: 52px; flex: 0 0 auto; }
-		.l3q-head select { flex: 1; min-width: 0; padding: 5px 6px; }
-		.l3q-head select.l3q-style { flex: 0 0 112px; }
-		.l3q-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-		.l3q-fields input { padding: 5px 7px; }
-		.l3q-btns { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
-		.l3q-btns button { padding: 5px 10px; }
-		.l3q-btns .l3q-state { flex: 1; font-size: 11px; color: var(--muted); }
-		.l3q-btns .l3q-state.dirty { color: var(--gold); }
-	</style>
 	<div id="l3q"></div>
 	<div class="hint">Presets et réglages complets : panneau Live. Entrée dans un champ = mettre à jour.</div>
-	<script src="../shared/live.js"></script>
-	<script>
-	(function () {
-		// Bloc autonome (partie live) : attend que kb.js (chargé plus bas dans la page) soit prêt
-		function init() {
-			const lt = nodecg.Replicant('liveLowerThird', { defaultValue: LIVE.defaults.liveLowerThird });
-			const ltp = nodecg.Replicant('liveLowerThirdPresets', { defaultValue: LIVE.defaults.liveLowerThirdPresets });
-			const root = document.getElementById('l3q');
-			const NAMES = { left: 'GAUCHE', right: 'DROITE' };
-			const styleOpts = Object.entries(LIVE.styles).map(([k, s]) => `<option value="${k}">${s.label}</option>`).join('');
-			root.innerHTML = Object.entries(NAMES).map(([side, n]) => `<div class="l3q-side" data-side="${side}">
-				<div class="l3q-head"><span class="dot" data-f="dot"></span><b>${n}</b><select data-f="preset"></select><select class="l3q-style" data-f="style">${styleOpts}</select></div>
-				<div class="l3q-fields"><input data-f="title" placeholder="Titre"><input data-f="subtitle" placeholder="Sous-titre"></div>
-				<div class="l3q-btns"><span class="l3q-state" data-f="state"></span>
-					<button class="show" data-a="show">AFFICHER</button><button class="primary" data-a="update">Mettre à jour</button><button class="danger" data-a="hide">MASQUER</button></div>
-			</div>`).join('');
-			const el = (side, f) => root.querySelector(`[data-side="${side}"] [data-f="${f}"]`);
-			const btn = (side, a) => root.querySelector(`[data-side="${side}"] [data-a="${a}"]`);
-			const val = () => LIVE.normalizeLowerThird(lt.value);
-			const set = (side, obj) => { const v = val(); v[side] = { ...v[side], ...obj }; lt.value = v; };
-			const casterText = (i) => { const c = (KB.rep.casters.value || [])[i] || {}; return { title: c.name || 'Caster', subtitle: c.handle || '' }; };
-			// Champs non affichés ici, repris du preset choisi (surtitre, source caster, durée)
-			const extra = { left: {}, right: {} };
-			const all = () => [...LIVE.autoPresets(KB), ...(Array.isArray(ltp.value) ? ltp.value : [])];
-			const form = (side) => ({ ...extra[side], style: el(side, 'style').value, title: el(side, 'title').value.trim(), subtitle: el(side, 'subtitle').value.trim() });
-			const shown = (s) => (s.source === 'caster' ? { ...s, ...casterText(+s.casterIndex || 0) } : s);
-			function load(side, p) {
-				const c = shown(p);
-				extra[side] = { kicker: p.kicker || '', source: p.source === 'caster' ? 'caster' : 'custom', casterIndex: +p.casterIndex || 0, duration: +p.duration || 0 };
-				el(side, 'style').value = c.style || 'standard'; el(side, 'title').value = c.title || ''; el(side, 'subtitle').value = c.subtitle || '';
-				state(side);
-			}
-			const sig = (s) => { const c = shown(s); return JSON.stringify([c.style, c.kicker || '', (c.title || '').trim(), (c.subtitle || '').trim()]); };
-			function state(side) {
-				const s = val()[side], dirty = sig(form(side)) !== sig(s);
-				el(side, 'dot').classList.toggle('on', !!s.visible);
-				const st = el(side, 'state');
-				st.textContent = dirty ? 'Non appliqué' : s.visible ? 'À l\'antenne' : 'Masqué';
-				st.classList.toggle('dirty', dirty);
-				btn(side, 'update').disabled = !dirty;
-			}
-			for (const side of Object.keys(NAMES)) {
-				btn(side, 'show').onclick = () => set(side, { ...form(side), visible: true });
-				btn(side, 'update').onclick = () => set(side, form(side));
-				btn(side, 'hide').onclick = () => set(side, { visible: false });
-				el(side, 'preset').onchange = () => { const p = all().find((x) => x.id === el(side, 'preset').value); if (p) load(side, p); el(side, 'preset').value = ''; };
-				el(side, 'style').onchange = () => state(side);
-				for (const f of ['title', 'subtitle']) {
-					el(side, f).oninput = () => { extra[side] = { ...extra[side], source: 'custom' }; state(side); };
-					el(side, f).onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); set(side, form(side)); } };
-				}
-			}
-			let loaded = false;
-			function render() {
-				const opt = (p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.name)}</option>`;
-				const auto = LIVE.autoPresets(KB), mine = Array.isArray(ltp.value) ? ltp.value : [];
-				const html = `<option value="">Preset…</option><optgroup label="Automatiques">${auto.map(opt).join('')}</optgroup>` + (mine.length ? `<optgroup label="Mes presets">${mine.map(opt).join('')}</optgroup>` : '');
-				for (const side of Object.keys(NAMES)) {
-					if (document.activeElement !== el(side, 'preset')) el(side, 'preset').innerHTML = html;
-					if (!loaded) load(side, val()[side]);
-					state(side);
-				}
-				loaded = true;
-			}
-			KB.watch(['casters', 'schedule', 'match', 'teams', lt, ltp], render);
-		}
-		if (window.KB) init(); else document.addEventListener('DOMContentLoaded', init);
-	})();
-	</script>
-	<!-- L3:END -->
-
-	<details class="card">
-		<summary>Données : réinitialiser / restaurer une sauvegarde</summary>
-		<div class="hint">Efface les DONNÉES (équipes, joueurs, match, planning, bracket, textes). Une sauvegarde est faite automatiquement avant.</div>
-		<div class="row">
-			<a class="shrink" href="/valorant-tournament/data-export" download><button type="button">⬇ Exporter mes données (fichier)</button></a>
-			<label class="shrink" style="margin:0"><button type="button" onclick="this.nextElementSibling.click()">⬆ Importer un fichier</button><input type="file" id="importFile" accept=".json" style="display:none"></label>
-		</div>
-		<div class="hint">Pour passer du PC local au serveur en ligne : exporte ici, puis importe le fichier sur la régie en ligne (équipes, joueurs, réglages, logos et photos).</div>
-		<div class="row"><button class="primary" id="testData">Charger des données de test</button></div>
-		<div class="hint">Match en cours avec scores, veto, agents joués, planning, bracket, compte à rebours. Garde tes équipes et joueurs (n'invente aucun joueur).</div>
-		<div class="row"><button class="danger" id="clearAll">Réinitialiser toutes les données</button></div>
-		<div class="msg" id="clearMsg"></div>
-		<details>
-			<summary>Restaurer une sauvegarde</summary>
-			<div class="row"><select id="backups"></select><button class="shrink" id="restore">Restaurer</button></div>
-		</details>
-	</details>
+	<div class="hint">Sauvegardes, import, données de test et réinitialisation : onglet « 3. Données ».</div>
 
 	<details>
 		<summary>URLs pour OBS : une seule suffit (stream.html), les autres restent disponibles</summary>
@@ -178,165 +93,111 @@
 	</details>
 
 	<script src="../shared/kb.js"></script>
+	<script src="../shared/defaults.js"></script>
+	<script src="../shared/live.js"></script>
 	<script src="../shared/maps.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlays.js"></script>
+	<script src="../shared/lt-form.js"></script>
 	<script>
 		const $ = (s) => document.querySelector(s);
-		// Chaque overlay : replicant + chemin du booléen "visible". fullscreen = écran plein qui doit être seul à l'antenne.
-		const GROUPS = [
-			['En jeu (transparent)', [
-				{ label: 'Lower third gauche', rep: 'liveLowerThird', path: ['left', 'visible'], hint: (v) => (v.left && v.left.title) || 'Contenu à régler dans Live' },
-				{ label: 'Lower third droite', rep: 'liveLowerThird', path: ['right', 'visible'], hint: (v) => (v.right && v.right.title) || 'Contenu à régler dans Live' },
-				{ label: 'Ticker', rep: 'liveTicker', path: ['visible'] },
-			]],
-			['Match', [
-				{ label: 'Versus', rep: 'matchGraphics', path: ['versus', 'visible'], fullscreen: true },
-				{ label: 'Veto des maps', rep: 'matchGraphics', path: ['veto', 'visible'], fullscreen: true },
-				{ label: 'Récap du veto', rep: 'matchGraphics', path: ['vetoRecap', 'visible'], fullscreen: true },
-			]],
-			['Maps', [
-				{ label: 'Intro de map', rep: 'mapsGraphics', path: ['intro', 'visible'], fullscreen: true },
-				{ label: 'Maps de la série', rep: 'mapsGraphics', path: ['series', 'visible'], fullscreen: true },
-				{ label: 'Résultat de map', rep: 'mapsGraphics', path: ['result', 'visible'], fullscreen: true, hint: (v) => (v.result && v.result.mvp ? 'MVP : ' + v.result.mvp : '') },
-			]],
-			['Joueurs', [
-				{ label: 'Stats joueur', rep: 'playerStatsGraphic', path: ['visible'], fullscreen: true, hint: (v) => (v.playerId ? (KB.profile(v.playerId)?.riotId || v.playerId) : 'Aucun joueur choisi (panneau Stats Joueur)'), needs: (v) => !!v.playerId },
-				{ label: 'Duel', rep: 'playerDuel', path: ['visible'], fullscreen: true, hint: (v) => [v.left, v.right].map((x) => (x ? x.split('#')[0] : '?')).join(' vs ') },
-			]],
-			['Tournoi', [
-				{ label: 'Groupes', rep: 'bracketGraphics', path: ['groups', 'visible'], fullscreen: true },
-				{ label: 'Bracket', rep: 'bracketGraphics', path: ['bracket', 'visible'], fullscreen: true },
-			]],
-		];
-		const ITEMS = GROUPS.flatMap(([, items]) => items);
-		const reps = {};
-		for (const it of ITEMS) reps[it.rep] ||= nodecg.Replicant(it.rep);
-
-		const get = (it) => !!it.path.reduce((o, k) => (o ? o[k] : undefined), reps[it.rep].value);
-		const setVisible = (it, on) => {
-			const r = reps[it.rep];
-			const v = JSON.parse(JSON.stringify(r.value || {}));
-			let o = v;
-			for (const k of it.path.slice(0, -1)) o = o[k] ||= {};
-			o[it.path[it.path.length - 1]] = on;
-			r.value = v;
-		};
-
-		// Préférence locale "un seul plein écran"
-		try { $('#exclusive').checked = localStorage.getItem('kb-regie-exclusive') !== '0'; } catch {}
-		$('#exclusive').onchange = (e) => { try { localStorage.setItem('kb-regie-exclusive', e.target.checked ? '1' : '0'); } catch {} };
-
-		function toggle(it) {
-			const on = !get(it);
-			if (on && it.fullscreen && $('#exclusive').checked) {
-				for (const other of ITEMS) if (other !== it && other.fullscreen && get(other)) setVisible(other, false);
-			}
-			setVisible(it, on);
-		}
-
-		function render() {
-			const box = $('#groups');
-			box.innerHTML = '';
-			for (const [title, items] of GROUPS) {
-				const g = document.createElement('div');
-				g.className = 'group';
-				g.innerHTML = `<div class="hint" style="margin:8px 0 2px;text-transform:uppercase;letter-spacing:.12em">${KB.esc(title)}</div>`;
-				for (const it of items) {
-					const on = get(it);
-					const val = reps[it.rep].value || {};
-					const hint = it.hint ? it.hint(val) : '';
-					const blocked = it.needs && !it.needs(val);
-					const row = document.createElement('div');
-					row.className = 'item';
-					row.innerHTML = `<span class="dot ${on ? 'on' : ''}"></span><span class="name">${KB.esc(it.label)}${hint ? `<small>${KB.esc(hint)}</small>` : ''}</span>`;
-					const b = document.createElement('button');
-					b.textContent = on ? 'À L\'ANTENNE' : 'AFFICHER';
-					b.className = on ? 'on' : '';
-					b.title = on ? 'Cliquer pour masquer' : '';
-					b.disabled = !on && blocked;
-					b.onclick = () => toggle(it);
-					row.appendChild(b);
-					g.appendChild(row);
-				}
-				box.appendChild(g);
-			}
-
-			const m = KB.rep.match.value || {};
-			const A = KB.team(m.teamA), B = KB.team(m.teamB);
-			const s = KB.seriesScore(m);
-			$('#tA').textContent = A ? A.name : '–';
-			$('#tB').textContent = B ? B.name : '–';
-			$('#score').textContent = `${s.A} - ${s.B}`;
-			const cur = (m.maps || [])[m.currentMap];
-			$('#matchSub').textContent = [m.stage, KB.formatLabel(m.format), cur ? `Map ${m.currentMap + 1} · ${cur.map} (${cur.scoreA ?? 0}-${cur.scoreB ?? 0})` : ''].filter(Boolean).join(' · ');
-			renderTransition();
-		}
-
-		// ---------- Scène de fond (graphics/stream.html) ----------
+		const streamScene = nodecg.Replicant('streamScene', { defaultValue: KBDefaults.streamScene() });
+		const trSettings = KBM.trRep();
 		const SCENES = [
 			['none', 'Jeu (aucune)'], ['starting', 'Bientôt'], ['brb', 'Pause'],
 			['ending', 'Fin'], ['schedule', 'Planning'], ['dual-cam', '50/50 caméras'],
 		];
-		const streamScene = nodecg.Replicant('streamScene', { defaultValue: { scene: 'none', via: 'cut', at: 0 } });
+		const FULL = KBO.ITEMS.filter((it) => it.fullscreen);
+
+		// ---------- Overlays : lignes construites une fois, état mis à jour en place (aucun clic perdu) ----------
+		// Au premier rendu : les replicants doivent être chargés
+		const buildRows = () => {
+			$('#groups').innerHTML = KBO.GROUPS.map((g) => `<div class="group"><div class="hint ovgroup">${KB.esc(g)}</div>`
+				+ KBO.ITEMS.filter((it) => it.group === g).map((it) => KBO.row(it.id)).join('') + '</div>').join('');
+			KBO.bind('#groups');
+		};
+		function updateRow(row) {
+			const it = KBO.item(row.dataset.ovrow);
+			const v = KBO.value(it.id), on = KBO.isVisible(it.id);
+			row.querySelector('.dot').classList.toggle('on', on);
+			const hint = it.hint ? it.hint(v) : '';
+			let small = row.querySelector('.name small');
+			if (hint && !small) small = row.querySelector('.name').appendChild(document.createElement('small'));
+			if (small) { small.textContent = hint; small.hidden = !hint; }
+			const b = row.querySelector('button[data-ov]');
+			b.textContent = on ? '● À L\'ANTENNE' : 'AFFICHER';
+			b.classList.toggle('onair', on);
+			b.title = on ? 'Cliquer pour masquer' : '';
+			b.disabled = !on && !!it.needs && !it.needs(v);
+		}
+
+		$('#exclusive').checked = KBO.exclusive;
+		$('#exclusive').onchange = (e) => { KBO.exclusive = e.target.checked; };
+
+		// ---------- Scène de fond (graphics/stream.html) : affichée SOUS les overlays ----------
+		$('#scenes').innerHTML = SCENES.map(([id, l]) => `<button type="button" data-scene="${id}">${l}</button>`).join('');
 		try { $('#via').value = localStorage.getItem('kb-regie-via') === 'cut' ? 'cut' : 'fade'; } catch {}
 		$('#via').onchange = (e) => { try { localStorage.setItem('kb-regie-via', e.target.value); } catch {} };
-		function renderScenes() {
-			const cur = (streamScene.value || {}).scene || 'none';
-			$('#scenes').innerHTML = SCENES.map(([id, l]) => `<button data-scene="${id}" class="${id === cur ? 'on show' : ''}">${l}</button>`).join('');
-		}
+		// Une scène de fond resterait cachée derrière un plein écran : on les masque d'abord
+		const setScene = (scene, via) => {
+			if (scene !== 'none') KBO.hideAll({ fullscreenOnly: true });
+			streamScene.value = { scene, via, at: Date.now() };
+		};
 		$('#scenes').onclick = (e) => {
 			const id = e.target.dataset.scene;
 			if (!id || id === (streamScene.value || {}).scene) return;
-			const via = $('#via').value;
-			streamScene.value = { scene: id, via, at: Date.now() };
+			setScene(id, $('#via').value);
 		};
-		NodeCG.waitForReplicants(streamScene).then(() => streamScene.on('change', renderScenes));
+		function renderScenes() {
+			const cur = (streamScene.value || {}).scene || 'none';
+			for (const b of $('#scenes').children) {
+				const on = b.dataset.scene === cur;
+				b.classList.toggle('on', on);
+				b.classList.toggle('show', on);
+			}
+		}
 
-		// ---------- Remise à zéro (extension/admin.js) ----------
-		const clearMsg = (t, cls = '') => { $('#clearMsg').textContent = t; $('#clearMsg').className = 'msg ' + cls; };
-		// Avec transition : on lance le stinger, puis on agit quand il couvre tout l'écran
-		// Point de coupe = milieu de la phase couverte, d'après les durées réglées (panneau Maps & Transitions)
-		const trSettings = KBM.trRep();
-		NodeCG.waitForReplicants(trSettings, KB.rep.match, KB.rep.valorantData).then(() => trSettings.on('change', () => renderTransition()));
-		const stingerCoverMs = () => KBM.stingerTiming(KBM.trSettings(trSettings.value), false).cut;
-		const withStinger = (fn) => { KB.rep.transition.value = { at: Date.now(), map: null }; setTimeout(fn, stingerCoverMs()); };
-		// Effacer l'ÉCRAN : masque tous les overlays + scène de fond "Jeu" (aucune donnée effacée)
+		// Masque tout ce qui est à l'antenne + scène « Jeu » (aucune donnée effacée)
 		const clearScreen = () => {
-			for (const it of ITEMS) if (get(it)) setVisible(it, false);
+			KBO.hideAll();
 			streamScene.value = { scene: 'none', via: 'cut', at: Date.now() };
 		};
-		$('#clearScreen').onclick = clearScreen;
+		$('#clearScreen').onclick = () => {
+			// Une transition lancée attend peut-être son point de coupe : son action ne doit plus repasser à l'antenne
+			if (trBusy) {
+				clearTimeout(trBusy);
+				trBusy = null;
+				KBD.flash('trMsg', 'Action de la transition annulée (Tout masquer).', 'info', 4000);
+			}
+			clearScreen();
+		};
 
 		// ---------- Transition : type (logo / logo + map) → destination → lancer ----------
 		let trType = 'logo';
 		try { trType = localStorage.getItem('kb-tr-type') === 'map' ? 'map' : 'logo'; } catch {}
-		const FULL = ITEMS.filter((it) => it.fullscreen);
+		const DIR = { ltr: 'gauche → droite', rtl: 'droite → gauche', down: 'haut → bas', up: 'bas → haut', center: 'du centre', diag: 'diagonale' };
 		function renderTransition() {
 			document.querySelectorAll('#trType button').forEach((b) => b.classList.toggle('sel', b.dataset.type === trType));
 			const m = KB.rep.match.value || {};
-			const sel = $('#trMapSel');
-			const prev = sel.value;
+			const cur = (m.maps || [])[m.currentMap];
 			const series = (m.maps || []).map((x, i) => x && x.map ? `<option value="${KB.esc(x.map)}">Map ${i + 1} · ${KB.esc(x.map)}${i === m.currentMap ? ' (en cours)' : ''}</option>` : '').join('');
 			const others = KB.mapNames().filter((n) => !(m.maps || []).some((x) => x && x.map === n)).map((n) => `<option value="${KB.esc(n)}">${KB.esc(n)}</option>`).join('');
-			sel.innerHTML = (series ? `<optgroup label="Maps de la série">${series}</optgroup>` : '') + (others ? `<optgroup label="Autres maps">${others}</optgroup>` : '');
-			const cur = (m.maps || [])[m.currentMap];
-			sel.value = prev && [...sel.options].some((o) => o.value === prev) ? prev : (cur && cur.map) || (sel.options[0] && sel.options[0].value) || '';
-			sel.style.display = trType === 'map' ? '' : 'none';
+			const sel = $('#trMapSel');
+			// Par défaut la map en cours ; ensuite le choix du régisseur est gardé
+			KBD.fillSelect(sel, (series ? `<optgroup label="Maps de la série">${series}</optgroup>` : '') + (others ? `<optgroup label="Autres maps">${others}</optgroup>` : ''),
+				sel.value ? undefined : (cur && cur.map) || undefined);
+			sel.classList.toggle('hidden', trType !== 'map');
 			// Réglages en vigueur (panneau Maps & Transitions → Réglages de la transition)
-			if (typeof trSettings !== 'undefined' && trSettings.value) {
-				const st = KBM.trSettings(trSettings.value);
-				const t = KBM.stingerTiming(st, trType === 'map');
-				const DIR = { ltr: 'gauche → droite', rtl: 'droite → gauche', down: 'haut → bas', up: 'bas → haut', center: 'du centre', diag: 'diagonale' };
-				$('#trInfo').textContent = `Réglages appliqués : durée ${(t.duration / 1000).toFixed(1)} s · volets ${DIR[st.direction] || st.direction} · coupe à ${(t.cut / 1000).toFixed(2)} s — modifiables dans Maps & Transitions`;
-			}
-			// Destinations
-			const dest = $('#trDest');
-			const prevD = dest.value || 'none';
-			dest.innerHTML = `<option value="none">Rien (juste la transition)</option>
-				<option value="clear">Effacer l'écran (tout masquer, retour au jeu)</option>
+			const st = KBM.trSettings(trSettings.value);
+			const t = KBM.stingerTiming(st, trType === 'map');
+			$('#trInfo').textContent = `Réglages appliqués : durée ${(t.duration / 1000).toFixed(1)} s · volets ${DIR[st.direction] || st.direction} · coupe à ${(t.cut / 1000).toFixed(2)} s — modifiables dans Maps & Transitions`;
+			KBD.fillSelect('#trDest', `<option value="none">Rien (juste la transition)</option>
+				<option value="clear">Tout masquer · retour au jeu</option>
 				<optgroup label="Scène de fond">${SCENES.map(([id, l]) => `<option value="scene:${id}">${l}</option>`).join('')}</optgroup>
-				<optgroup label="Overlay plein écran">${FULL.map((it, i) => `<option value="ov:${i}" ${it.needs && !it.needs(reps[it.rep].value || {}) ? 'disabled' : ''}>${KB.esc(it.label)}</option>`).join('')}</optgroup>`;
-			dest.value = [...dest.options].some((o) => o.value === prevD) ? prevD : 'none';
+				<optgroup label="Overlay plein écran">${FULL.map((it) => `<option value="ov:${it.id}"${it.needs && !it.needs(KBO.value(it.id)) ? ' disabled' : ''}>${KB.esc(it.label)}</option>`).join('')}</optgroup>`);
 		}
+		// Un menu n'est pas réécrit tant qu'il a le focus (KBD.fillSelect) : rattrapage à la sortie
+		for (const id of ['#trMapSel', '#trDest']) $(id).addEventListener('blur', renderTransition);
 		$('#trType').onclick = (e) => {
 			const t = e.target.dataset.type;
 			if (!t) return;
@@ -346,79 +207,43 @@
 		};
 		function applyDest(d) {
 			if (d === 'clear') return clearScreen();
-			if (d.startsWith('scene:')) {
-				for (const it of FULL) if (get(it)) setVisible(it, false); // la scène doit être visible
-				streamScene.value = { scene: d.slice(6), via: 'cut', at: Date.now() };
-				return;
-			}
-			if (d.startsWith('ov:')) {
-				const target = FULL[+d.slice(3)];
-				for (const it of FULL) if (it !== target && get(it)) setVisible(it, false);
-				if (target && !get(target)) setVisible(target, true);
-			}
+			if (d.startsWith('scene:')) return setScene(d.slice(6), 'cut');
+			if (d.startsWith('ov:')) KBO.show(d.slice(3), { exclusive: true });
 		}
 		let trBusy = null;
 		$('#trGo').onclick = () => {
 			const map = trType === 'map' ? $('#trMapSel').value || null : null;
-			const d = $('#trDest').value;
+			const d = $('#trDest').value || 'none';
 			const t = KBM.stingerTiming(KBM.trSettings(trSettings.value), !!map);
 			KB.rep.transition.value = { at: Date.now(), map };
 			const label = $('#trDest').selectedOptions[0] ? $('#trDest').selectedOptions[0].textContent : '';
-			$('#trMsg').textContent = `Transition ${map ? '+ ' + map : 'logo'} lancée${d !== 'none' ? ' → ' + label : ''}`;
-			$('#trMsg').className = 'msg ok';
+			KBD.flash('trMsg', `Transition ${map ? '+ ' + map : 'logo'} lancée${d !== 'none' ? ' → ' + label : ''}`, 'ok', 0);
 			clearTimeout(trBusy);
-			if (d !== 'none') trBusy = setTimeout(() => applyDest(d), t.cut);
+			trBusy = null;
+			// L'action est faite pendant que le stinger couvre tout l'écran : au point de coupe, sauf pour une scène de fond,
+			// demandée dès le début de la couverture (stream.html garde l'ancienne affichée tant que la nouvelle charge)
+			const at = d.startsWith('scene:') && t.covered ? t.coveredFrom : t.cut;
+			if (d !== 'none') trBusy = setTimeout(() => { trBusy = null; applyDest(d); }, at);
 		};
 
-		// Réinitialiser les DONNÉES : 2 clics pour confirmer
-		let armed = null;
-		$('#clearAll').onclick = (e) => {
-			if (!armed) {
-				e.target.textContent = 'Confirmer : effacer toutes les données ?';
-				armed = setTimeout(() => { armed = null; e.target.textContent = 'Réinitialiser toutes les données'; }, 4000);
-				return;
-			}
-			clearTimeout(armed); armed = null;
-			e.target.textContent = 'Réinitialiser toutes les données';
-			const all = { overlays: true, match: true, teams: true, players: true, schedule: true, bracket: true, texts: true };
-			nodecg.sendMessage('data:clearAll', all)
-				.then((r) => { clearMsg('✔ Tout est effacé (sauvegarde auto : ' + r.backup + ')', 'ok'); loadBackups(); })
-				.catch((err) => clearMsg(String(err.message || err), 'err'));
-		};
-		$('#testData').onclick = () => {
-			nodecg.sendMessage('data:testData')
-				.then((r) => { clearMsg('✔ Données de test chargées (sauvegarde : ' + r.backup + ')', 'ok'); loadBackups(); })
-				.catch((err) => clearMsg(String(err.message || err), 'err'));
-		};
-		$('#importFile').onchange = async (e) => {
-			const file = e.target.files[0];
-			if (!file) return;
-			clearMsg('Import en cours…');
-			try {
-				const r = await fetch('/valorant-tournament/data-import', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: await file.text(), credentials: 'include' });
-				const j = await r.json();
-				if (!j.ok) throw new Error(j.error);
-				clearMsg(`✔ Importé : ${j.replicants} réglages/données, ${j.files} fichiers (logos, photos)`, 'ok');
-				loadBackups();
-			} catch (err) { clearMsg('Import impossible : ' + err.message, 'err'); }
-			e.target.value = '';
-		};
-		function loadBackups() {
-			nodecg.sendMessage('data:backups').then((list) => {
-				$('#backups').innerHTML = list.length ? list.map((f) => `<option>${KB.esc(f)}</option>`).join('') : '<option value="">Aucune sauvegarde</option>';
-			}).catch(() => {});
+		// ---------- Rendu : overlays, match en cours, transition ----------
+		function render() {
+			if (!$('#groups').children.length) buildRows();
+			$('#groups').querySelectorAll('[data-ovrow]').forEach(updateRow);
+			const m = KB.rep.match.value || {};
+			const A = KB.team(m.teamA), B = KB.team(m.teamB);
+			const s = KB.seriesScore(m);
+			$('#tA').textContent = A ? A.name : '–';
+			$('#tB').textContent = B ? B.name : '–';
+			$('#score').textContent = `${s.A} - ${s.B}`;
+			const cur = (m.maps || [])[m.currentMap];
+			$('#matchSub').textContent = KB.joinDot(m.stage, KB.formatLabel(m.format), cur ? `Map ${m.currentMap + 1} · ${cur.map} (${cur.scoreA ?? 0}-${cur.scoreB ?? 0})` : '');
+			renderTransition();
 		}
-		$('#restore').onclick = () => {
-			const file = $('#backups').value;
-			if (!file) return;
-			nodecg.sendMessage('data:restore', { file })
-				.then(() => clearMsg('✔ Sauvegarde restaurée : ' + file, 'ok'))
-				.catch((err) => clearMsg(String(err.message || err), 'err'));
-		};
-		loadBackups();
 
+		KBLT.mount('#l3q', { compact: true });
 
-		// URLs OBS
+		// ---------- URLs OBS ----------
 		const GRAPHICS = [
 			['stream', '★ STREAM — toutes les couches (la seule à mettre dans OBS)'], ['starting', 'Le stream commence bientôt'], ['brb', 'Pause'], ['ending', 'Fin de stream'], ['schedule', 'Planning'],
 			['transition', 'Transition (tout en haut)'], ['lower-third', 'Lower thirds'], ['ticker', 'Ticker'],
@@ -426,14 +251,15 @@
 			['map-result', 'Résultat de map'], ['player-stats', 'Stats joueur'], ['player-duel', 'Duel'], ['groups', 'Groupes'], ['bracket', 'Bracket'],
 		];
 		const base = location.origin + '/bundles/valorant-tournament/graphics/';
-		$('#urls').innerHTML = GRAPHICS.map(([f, l]) => `<div class="u"><span>${l}</span><button data-u="${base}${f}.html">Copier</button></div>`).join('');
+		$('#urls').innerHTML = GRAPHICS.map(([f, l]) => `<div class="u"><span>${l}</span><button type="button" data-u="${base}${f}.html">Copier</button></div>`).join('');
 		$('#urls').onclick = (e) => {
 			const u = e.target.dataset.u;
 			if (!u) return;
 			navigator.clipboard.writeText(u).then(() => { e.target.textContent = 'Copié ✓'; setTimeout(() => (e.target.textContent = 'Copier'), 1200); });
 		};
 
-		KB.watch([...Object.values(reps), 'match', 'teams', 'playerProfiles', 'valorantData'], render);
+		KB.watch([...KBO.repNames(), 'match', 'teams', 'playerProfiles', 'playerData', 'valorantData', trSettings], render);
+		KB.watch([streamScene], renderScenes);
 	</script>
 </body>
 </html>

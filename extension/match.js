@@ -4,6 +4,7 @@
 //                     visibilité des graphics versus.html / veto.html / veto-recap.html
 //   - matchVeto     : { format: 'bo1'|'bo3'|'bo5', sequence: [{ action: 'ban'|'pick'|'decider', team: 'A'|'B'|null }] }
 //                     déroulé prévu du veto (les étapes jouées sont dans le replicant coeur `veto`)
+// Complète au démarrage une valeur matchGraphics persistée d'une version précédente (ex. sans vetoRecap).
 const { MATCH_DEFAULTS } = require('../shared/match.js');
 
 const clone = (v) => JSON.parse(JSON.stringify(v));

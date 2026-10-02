@@ -1,68 +1,24 @@
-// État partagé du tournoi : déclaration de TOUS les replicants "coeur" avec leurs valeurs par défaut.
-// Les graphics et panneaux lisent/écrivent ces replicants ; voir docs/DATA.md pour le détail des formes.
+// Replicants « coeur » partagés par toutes les parties : tournoi, équipes, match, veto, joueurs, casters,
+// planning, compte à rebours, scène de fond, déclencheur de transition, cache des données Valorant.
+// Valeurs par défaut et description des formes : shared/defaults.js (source unique, lue aussi par les pages).
+// Message : 'valorantData:refresh' → recharge maps et agents depuis valorant-api.com → { maps, agents } (nombres)
+const D = require('../shared/defaults.js');
 
-// Pool de maps compétitif actuel (modifiable depuis le panneau Match)
-const DEFAULT_POOL = ['Abyss', 'Ascent', 'Bind', 'Corrode', 'Haven', 'Lotus', 'Sunset'];
+module.exports = function (nodecg, listen) {
+	// Profils importés de tracker.gg (forme : extension/tracker.js, normalize)
+	const profiles = nodecg.Replicant('playerProfiles', { defaultValue: D.playerProfiles() });
 
-module.exports = function (nodecg) {
-	// Infos générales du tournoi (reprises de l'affiche)
-	const profiles = nodecg.Replicant('playerProfiles', { defaultValue: {} });
-
-	// Supprime les profils de démo générés par une ancienne version de demo:seed
-	if (Object.values(profiles.value || {}).some((p) => p.demo)) {
-		profiles.value = Object.fromEntries(Object.entries(profiles.value).filter(([, p]) => !p.demo));
+	// Supprime les profils de démo générés par une ancienne version du bundle
+	if (Object.values(profiles.value || {}).some((p) => p && p.demo)) {
+		profiles.value = Object.fromEntries(Object.entries(profiles.value).filter(([, p]) => !(p && p.demo)));
 	}
 
-	nodecg.Replicant('tournament', {
-		defaultValue: {
-			name: 'KB SERIES',
-			edition: 'Édition spéciale Epitech',
-			presentedBy: 'CYCOM',
-			subtitle: 'Tournoi Valorant 5v5',
-			dates: '31/10 & 14/11',
-			location: 'Campus KB · Le Kremlin-Bicêtre',
-			hashtag: '#KBSERIES',
-			socials: '',
-		},
-	});
+	for (const name of ['tournament', 'teams', 'match', 'veto', 'casters', 'schedule', 'countdown', 'streamScene', 'transition']) {
+		nodecg.Replicant(name, { defaultValue: D[name]() });
+	}
 
-	// Équipes : { [id]: { id, name, tag, logo, color, players: [{ riotId, role }] } }
-	//   - logo : URL (asset NodeCG "team-logos" ou lien externe), peut être vide
-	//   - players[].riotId : "Pseudo#TAG", clé en minuscules dans playerProfiles
-	nodecg.Replicant('teams', { defaultValue: {} });
-
-	// Match en cours
-	nodecg.Replicant('match', {
-		defaultValue: {
-			stage: 'Phase de groupes',          // libellé libre : "Quart de finale", "Grande finale"...
-			format: 'bo3',                     // bo1 | bo3 | bo5
-			teamA: null,                       // id d'équipe (clé de `teams`)
-			teamB: null,
-			swap: false,                       // inverse gauche/droite à l'écran
-			currentMap: 0,                     // index dans maps[]
-			maps: [
-				// { map: 'Ascent', pickedBy: 'A'|'B'|'decider'|null, scoreA: 0, scoreB: 0, winner: null|'A'|'B', status: 'upcoming'|'live'|'done' }
-			],
-		},
-	});
-
-	// Veto des maps : liste d'étapes jouées dans l'ordre
-	nodecg.Replicant('veto', {
-		defaultValue: {
-			pool: DEFAULT_POOL,
-			steps: [
-				// { action: 'ban'|'pick'|'decider', team: 'A'|'B'|null, map: null|'Ascent', side: null|'attack'|'defense', sideTeam: null|'A'|'B' }
-			],
-		},
-	});
-
-	// Données joueurs saisies à la main (priment sur tracker.gg). Clé = riotId en minuscules.
-	// { [key]: { riotId, displayName, realName, photo, overrides: { rank: {name, icon}|null, peak: {name, icon}|null,
-	//            stats: { kd: '1.10', acs: '230', adr, hs, kast, winPct, matches, firstBloods, ... (chaînes affichées) },
-	//            agents: ['Jett', 'Raze', 'Omen'] /* agents favoris, remplace le top tracker */ } } }
-	// Agents joués pendant le match : match.maps[i].picks = { [key]: 'Jett' } (champ optionnel)
-	// Lecture fusionnée côté pages : KB.player(riotId) (shared/kb.js)
-	const playerData = nodecg.Replicant('playerData', { defaultValue: {} });
+	// Fiches joueurs saisies à la main (priment sur tracker.gg). Lecture fusionnée côté pages : KB.player(riotId)
+	const playerData = nodecg.Replicant('playerData', { defaultValue: D.playerData() });
 	// Migration : anciennes photos (replicant playerPhotos) -> playerData[key].photo
 	const oldPhotos = nodecg.Replicant('playerPhotos', { defaultValue: {} });
 	const ph = oldPhotos.value || {};
@@ -73,118 +29,62 @@ module.exports = function (nodecg) {
 		oldPhotos.value = {};
 	}
 
-	// Casters / présentateurs
-	nodecg.Replicant('casters', { defaultValue: [{ name: 'Caster 1', handle: '' }, { name: 'Caster 2', handle: '' }] });
-
-	// Planning de la journée : [{ time: '10:00', label: 'Groupe A', teamA: id|null, teamB: id|null, status: 'upcoming'|'live'|'done', scoreA, scoreB }]
-	nodecg.Replicant('schedule', { defaultValue: [] });
-
-	// Compte à rebours partagé (écrans d'attente / pause) : endsAt = timestamp ms, ou null
-	nodecg.Replicant('countdown', { defaultValue: { endsAt: null, label: 'Le stream commence dans' } });
-
-	// Page maîtresse graphics/stream.html : scène de fond affichée (une seule source OBS pour tout)
-	// scene : 'none' (jeu) | 'starting' | 'brb' | 'ending' | 'schedule' | 'dual-cam' ; via : 'cut' | 'fade' | 'stinger'
-	nodecg.Replicant('streamScene', { defaultValue: { scene: 'none', via: 'cut', at: 0 } });
-
-	// Déclencheur de transition plein écran (stinger) : on écrit { at: Date.now(), map: 'Ascent'|null }
-	nodecg.Replicant('transition', { defaultValue: { at: 0, map: null } });
-
 	// Données Valorant (maps, agents) récupérées sur valorant-api.com et persistées pour fonctionner hors-ligne
-	const valorantData = nodecg.Replicant('valorantData', { defaultValue: { maps: {}, agents: {}, updatedAt: 0 } });
+	const valorantData = nodecg.Replicant('valorantData', { defaultValue: D.valorantData() });
+
+	const getJson = async (url) => {
+		const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+		if (!r.ok) throw new Error(`valorant-api.com a répondu ${r.status}`);
+		const j = await r.json();
+		if (!j || !Array.isArray(j.data)) throw new Error('réponse inattendue de valorant-api.com');
+		return j.data;
+	};
 
 	async function refreshValorantData() {
-		try {
-			const [maps, agents] = await Promise.all([
-				fetch('https://valorant-api.com/v1/maps').then((r) => r.json()),
-				fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true').then((r) => r.json()),
-			]);
-			const m = {};
-			for (const x of maps.data) {
-				if (!x.tacticalDescription) continue; // ignore les maps hors compétitif (TDM, range...)
-				m[x.displayName] = {
-					uuid: x.uuid,
-					name: x.displayName,
-					sites: x.tacticalDescription,
-					coordinates: x.coordinates,
-					splash: x.splash,
-					minimap: x.displayIcon,
-					listView: x.listViewIcon,
-					listViewTall: x.listViewIconTall,
-					stylized: x.stylizedBackgroundImage,
-					premier: x.premierBackgroundImage,
-				};
-			}
-			const a = {};
-			for (const x of agents.data) {
-				a[x.displayName] = {
-					uuid: x.uuid,
-					name: x.displayName,
-					role: x.role && x.role.displayName,
-					roleIcon: x.role && x.role.displayIcon,
-					icon: x.displayIcon,
-					bust: x.bustPortrait,
-					portrait: x.fullPortrait,
-					killfeed: x.killfeedPortrait,
-					background: x.background,
-					colors: x.backgroundGradientColors,
-				};
-			}
-			valorantData.value = { maps: m, agents: a, updatedAt: Date.now() };
-			nodecg.log.info(`valorant-api : ${Object.keys(m).length} maps, ${Object.keys(a).length} agents`);
-		} catch (e) {
-			nodecg.log.warn('valorant-api indisponible, on garde les données en cache :', e.message);
+		const [maps, agents] = await Promise.all([
+			getJson('https://valorant-api.com/v1/maps'),
+			getJson('https://valorant-api.com/v1/agents?isPlayableCharacter=true'),
+		]);
+		const m = {};
+		for (const x of maps) {
+			if (!x || !x.tacticalDescription) continue; // ignore les maps hors compétitif (TDM, range...)
+			m[x.displayName] = {
+				uuid: x.uuid,
+				name: x.displayName,
+				sites: x.tacticalDescription,
+				coordinates: x.coordinates,
+				splash: x.splash,
+				minimap: x.displayIcon,
+				listView: x.listViewIcon,
+				listViewTall: x.listViewIconTall,
+				stylized: x.stylizedBackgroundImage,
+				premier: x.premierBackgroundImage,
+			};
 		}
+		const a = {};
+		for (const x of agents) {
+			if (!x || !x.displayName) continue;
+			a[x.displayName] = {
+				uuid: x.uuid,
+				name: x.displayName,
+				role: x.role && x.role.displayName,
+				roleIcon: x.role && x.role.displayIcon,
+				icon: x.displayIcon,
+				bust: x.bustPortrait,
+				portrait: x.fullPortrait,
+				killfeed: x.killfeedPortrait,
+				background: x.background,
+				colors: x.backgroundGradientColors,
+			};
+		}
+		const counts = { maps: Object.keys(m).length, agents: Object.keys(a).length };
+		// Une réponse partielle ne doit pas vider le cache qui fait marcher les overlays hors-ligne
+		if (!counts.maps || !counts.agents) throw new Error(`réponse incomplète de valorant-api.com (${counts.maps} maps, ${counts.agents} agents) : cache conservé`);
+		valorantData.value = { maps: m, agents: a, updatedAt: Date.now() };
+		nodecg.log.info(`valorant-api : ${counts.maps} maps, ${counts.agents} agents`);
+		return counts;
 	}
-	refreshValorantData();
+	refreshValorantData().catch((e) => nodecg.log.warn('valorant-api indisponible, on garde les données en cache :', e.message));
 
-	// Données de démo pour tester les overlays : nodecg.sendMessage('demo:seed') depuis un panneau
-	nodecg.listenFor('demo:seed', (_, ack) => {
-		const names = [
-			['Epitech Eclipse', 'EPX', '#3b8fe6'], ['Kremlin Kings', 'KK', '#f5c445'], ['Nova Rift', 'NVR', '#9b5cff'],
-			['Cycom Raiders', 'CYR', '#ff9a3c'], ['Bicêtre Blaze', 'BB', '#ff4655'], ['Pasteur Phantoms', 'PPH', '#3ddc97'],
-			['Orbit Five', 'OR5', '#5ec4ff'], ['Starfall', 'SF', '#c9b274'],
-		];
-		// Seul vrai joueur fourni : Elysira#7w7 (dans Epitech Eclipse). Aucun faux joueur ni faux profil n'est créé.
-		const teams = {};
-		names.forEach(([name, tag, color]) => {
-			const id = tag.toLowerCase();
-			const players = id === 'epx' ? [{ riotId: 'Elysira#7w7', role: 'Initiator' }] : [];
-			teams[id] = { id, name, tag, color, logo: '', players };
-		});
-		// Nettoie d'anciens profils de démo éventuels
-		profiles.value = Object.fromEntries(Object.entries(profiles.value || {}).filter(([, p]) => !p.demo));
-		nodecg.Replicant('teams').value = teams;
-		nodecg.Replicant('match').value = {
-			stage: 'Demi-finale', format: 'bo3', teamA: 'epx', teamB: 'kk', swap: false, currentMap: 1,
-			maps: [
-				{ map: 'Lotus', pickedBy: 'A', scoreA: 13, scoreB: 9, winner: 'A', status: 'done' },
-				{ map: 'Haven', pickedBy: 'B', scoreA: 7, scoreB: 5, winner: null, status: 'live' },
-				{ map: 'Ascent', pickedBy: 'decider', scoreA: 0, scoreB: 0, winner: null, status: 'upcoming' },
-			],
-		};
-		nodecg.Replicant('veto').value = {
-			pool: DEFAULT_POOL,
-			steps: [
-				{ action: 'ban', team: 'A', map: 'Bind' }, { action: 'ban', team: 'B', map: 'Abyss' },
-				{ action: 'pick', team: 'A', map: 'Lotus', sideTeam: 'B', side: 'defense' }, { action: 'pick', team: 'B', map: 'Haven', sideTeam: 'A', side: 'attack' },
-				{ action: 'ban', team: 'A', map: 'Sunset' }, { action: 'ban', team: 'B', map: 'Corrode' },
-				{ action: 'decider', team: null, map: 'Ascent', sideTeam: 'A', side: 'defense' },
-			],
-		};
-		nodecg.Replicant('casters').value = [{ name: 'Tom', handle: '@tom_cast' }, { name: 'Léa', handle: '@lea_valo' }];
-		nodecg.Replicant('schedule').value = [
-			{ time: '10:00', label: 'Quart de finale 1', teamA: 'epx', teamB: 'pph', status: 'done', scoreA: 2, scoreB: 0 },
-			{ time: '11:30', label: 'Quart de finale 2', teamA: 'kk', teamB: 'or5', status: 'done', scoreA: 2, scoreB: 1 },
-			{ time: '14:00', label: 'Demi-finale 1', teamA: 'epx', teamB: 'kk', status: 'live', scoreA: 1, scoreB: 0 },
-			{ time: '15:30', label: 'Demi-finale 2', teamA: 'nvr', teamB: 'cyr', status: 'upcoming' },
-			{ time: '17:00', label: 'Petite finale', teamA: null, teamB: null, status: 'upcoming' },
-			{ time: '18:30', label: 'Grande finale', teamA: null, teamB: null, status: 'upcoming' },
-		];
-		nodecg.Replicant('countdown').value = { endsAt: Date.now() + 10 * 60 * 1000, label: 'Le stream commence dans' };
-		nodecg.log.info('Données de démo chargées');
-		if (ack && !ack.handled) ack(null);
-	});
-	nodecg.listenFor('valorantData:refresh', (_, ack) => refreshValorantData().then(() => ack && !ack.handled && ack(null)));
+	listen('valorantData:refresh', () => refreshValorantData());
 };
-
-module.exports.DEFAULT_POOL = DEFAULT_POOL;

@@ -3,6 +3,9 @@
 <head>
 	<meta charset="utf-8">
 	<title>Résultat de map</title>
+	<!-- Résultat d'une map : score final (ou en cours), score de la série, vainqueur de la série et fiche MVP facultative.
+	     Lit match, teams, valorantData, playerProfiles, playerData et mapsGraphics.result (visibilité, map, MVP).
+	     Piloté par le panneau « Maps & transitions » (dashboard/maps-transitions.html). -->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/maps.css">
 	<style>
@@ -33,7 +36,7 @@
 		.team .nm { font: 400 52px/1.05 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.team .res { min-height: 34px; display: flex; align-items: center; }
 		.team .res .kb-pill { position: relative; overflow: hidden; }
-		.team .res .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -50%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); animation: kbm-sweep 4s ease-in-out infinite; animation-delay: 2s; }
+		.team .res .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; --sw: 40; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-75%); animation: kbm-sweep-w 4s ease-in-out infinite; animation-delay: 2s; }
 		.team.lose .lg, .team.lose .nm { opacity: .5; filter: grayscale(.6); }
 		.with-mvp .team .lg { width: 170px; height: 170px; }
 		.with-mvp .team .nm { font-size: 42px; }
@@ -71,7 +74,7 @@
 		.kb-settled #mvp .port { animation: none; }
 		#mvp .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; background: linear-gradient(180deg, transparent, rgba(4, 6, 26, .85) 40%, var(--kb-night-0)); }
 		#mvp .pill { position: absolute; left: 32px; top: 32px; overflow: hidden; }
-		#mvp .pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -50%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); animation: kbm-sweep 4.5s ease-in-out infinite; animation-delay: 2.4s; }
+		#mvp .pill::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; --sw: 40; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-75%); animation: kbm-sweep-w 4.5s ease-in-out infinite; animation-delay: 2.4s; }
 		#mvp .info { position: absolute; left: 32px; right: 32px; bottom: 30px; }
 		#mvp .pn { font: 400 76px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		#mvp .real { font: 600 18px var(--kb-ui); letter-spacing: .12em; color: var(--kb-text); opacity: .75; margin-top: 2px; }
@@ -91,7 +94,7 @@
 	</style>
 </head>
 <body>
-	<div id="scene" class="kbm-scene">
+	<div id="scene" class="kb-scene">
 		<div id="splash" class="kbm-kenburns"></div>
 		<div id="shade"></div>
 		<div id="tint"></div>
@@ -106,7 +109,7 @@
 	<script>
 		const $ = (s) => document.querySelector(s);
 		const sceneEl = $('#scene');
-		const scene = KBM.scene(sceneEl, 3400);
+		const scene = KB.scene(sceneEl, { settleMs: 3400 });
 		const esc = KB.esc;
 		const seen = new Map();
 
@@ -114,8 +117,9 @@
 		function mvpHtml(value, mapName, mapIndex, match, fallbackTeamKey) {
 			value = String(value || '').trim();
 			if (!value) return '';
-			const known = !!(KB.teamOf(value) || (KB.rep.playerData.value || {})[KB.key(value)] || KB.profile(value));
-			const p = known ? KB.player(value) : null;
+			const pl = KB.player(value);
+			const known = !!(KB.teamOf(value) || (KB.rep.playerData.value || {})[KB.key(value)] || pl.hasTracker);
+			const p = known ? pl : null;
 			const name = p ? p.name : value.split('#')[0];
 			const team = (p && p.team) || (fallbackTeamKey ? KBM.teamOf(fallbackTeamKey, match) : null);
 			// Agent : pické sur la map > favori sur la map (tracker) > favori général
@@ -157,19 +161,18 @@
 		function render() {
 			const match = KB.rep.match.value || {};
 			const cfg = KBM.cfg().result;
-			KBM.teamVars(sceneEl, match);
 			const at = KBM.mapAt(cfg.index, match);
 			const content = $('#content');
-			const entering = !sceneEl.classList.contains('kb-in') || !sceneEl.classList.contains('kb-settled');
+			const entering = !scene.visible;   // rendu d'apparition (appelé par KB.scene avant l'affichage)
 			if (!at || !at.entry || !at.entry.map) {
 				sceneEl.classList.remove('with-mvp');
-				$('#splash').style.backgroundImage = `url("${KB.img.posterArt}")`;
-				content.innerHTML = `<div id="empty"><div><img class="kb-logo kb-anim kb-anim--pop" src="${KB.img.kbs}" style="width:240px;height:240px;margin:0 auto"><div class="kb-title kb-anim" style="--i:2;font-size:100px;margin-top:20px">Aucune map jouée</div></div></div>`;
+				$('#splash').style.backgroundImage = KBM.cssUrl(KB.img.posterArt);
+				KBM.patch(content, `<div id="empty"><div><img class="kb-logo kb-anim kb-anim--pop" src="${KB.img.kbs}" style="width:240px;height:240px;margin:0 auto"><div class="kb-title kb-anim" style="--i:2;font-size:100px;margin-top:20px">Aucune map jouée</div></div></div>`, 'vide');
 				return;
 			}
 			const e = at.entry, m = KB.map(e.map);
 			const mapName = (m && m.name) || e.map;
-			$('#splash').style.backgroundImage = m && m.splash ? `url("${m.splash}")` : `url("${KB.img.posterArt}")`;
+			$('#splash').style.backgroundImage = KBM.cssUrl(m && m.splash ? m.splash : KB.img.posterArt);
 			const { left, right, leftKey, rightKey } = KB.sides(match);
 			const sc = { A: +e.scoreA || 0, B: +e.scoreB || 0 };
 			const w = KBM.winnerOf(e) || (e.status === 'done' && sc.A !== sc.B ? (sc.A > sc.B ? 'A' : 'B') : null);
@@ -182,7 +185,7 @@
 
 			const teamHtml = (t, key, dir) => {
 				const res = w ? (w === key ? 'win' : 'lose') : '';
-				const c = (t && t.color) || (key === 'A' ? '#3b8fe6' : '#ff4655');
+				const c = KB.teamColor(t, key);
 				return `<div class="team ${res} kb-anim kb-anim--${dir}" style="--i:2;--c:${esc(c)}">
 					<div class="res">${res === 'win' ? '<span class="kb-pill">Victoire</span>' : '&nbsp;'}</div>
 					<div class="lg"><div class="rays"></div><div class="halo"></div><div class="kbm-glint" style="--gd:${dir === 'left' ? 2.2 : 3.4}s">${KB.teamLogo(t, mvp ? 150 : 190)}</div></div>
@@ -194,11 +197,12 @@
 			const tag = (t) => (t ? `<div class="tg">${esc(t.tag || t.name)}</div>` : '');
 			const ct = clinch && KBM.teamOf(clinch, match);
 
-			content.innerHTML = `
+			// Même map et même MVP : mise à jour en place (rayons, halos et reflets continuent)
+			KBM.patch(content, `
 				<div id="main">
 					<div id="top">
 						<div class="logo kbm-glint kb-anim kb-anim--pop" style="--i:0"><img class="kb-logo" src="${KB.img.kbs}" alt=""></div>
-						<div class="kb-kicker kb-anim" style="--i:1">${final ? `Fin de la map ${at.number}` : `Map ${at.number} · en cours`} · ${esc(match.stage || '')}</div>
+						<div class="kb-kicker kb-anim" style="--i:1">${esc(KB.joinDot(final ? `Fin de la map ${at.number}` : `Map ${at.number} · en cours`, match.stage))}</div>
 						<div class="mapname kb-anim" style="--i:1">${esc(mapName)}</div>
 						<div class="kb-rule kb-rule--gold kbm-sweep kb-anim" style="--i:2"></div>
 					</div>
@@ -209,13 +213,13 @@
 					</div>
 					<div id="seriesbar" class="kb-panel kb-anim" style="--i:5">
 						${tag(left)}${pips(leftKey, '')}
-						<div style="text-align:center"><div class="k">Série · ${esc(KB.formatLabel(match.format))}</div><div class="sc"><span data-k="sl">${s[leftKey]}</span> – <span data-k="sr">${s[rightKey]}</span></div></div>
+						<div style="text-align:center"><div class="k">${esc(KB.joinDot('Série', KB.formatLabel(match.format)))}</div><div class="sc"><span data-k="sl">${s[leftKey]}</span> – <span data-k="sr">${s[rightKey]}</span></div></div>
 						${pips(rightKey, 'r')}${tag(right)}
 					</div>
 					${ct ? `<div id="clinch" class="kb-anim" style="--i:9">${esc(ct.name)} remporte la série</div>` : ''}
 				</div>
 				${mvp}
-				<div class="kbm-partners kb-anim" style="--i:10"><img src="${KB.img.kbs}" alt="">KB SERIES · Présenté par <img src="${KB.img.cycom}" alt=""> · Édition spéciale <img src="${KB.img.epitech}" alt="" style="height:30px"></div>`;
+				<div class="kbm-partners kb-anim" style="--i:10"><img src="${KB.img.kbs}" alt="">KB SERIES · Présenté par <img src="${KB.img.cycom}" alt=""> · Édition spéciale <img src="${KB.img.epitech}" alt="" style="height:30px"></div>`, [at.index, e.map, cfg.mvp || ''].join('|'));
 			// Compteur sur le score à l'entrée seulement (rien ne bouge ensuite pendant la lecture)
 			if (entering) content.querySelectorAll('#nums [data-n]').forEach((el) => KB.countUp(el, el.dataset.n, { delay: 450, duration: 900 }));
 			KBM.flashChanges(sceneEl, seen);

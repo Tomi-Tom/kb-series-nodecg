@@ -2,12 +2,14 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
+	<title>Versus</title>
+	<!-- Écran « versus » avant un match : équipes, rosters (agent pické / favori, rang), moyennes d'équipe.
+	     Lit match, teams, playerProfiles, playerData, valorantData et matchGraphics.versus (visibilité).
+	     Piloté par le panneau « Match » (dashboard/match.html). -->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/match.css">
 	<style>
-		#stage { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; --l: var(--team-a); --r: var(--team-b); }
-		#stage.kb-in { opacity: 1; }
-		#stage.kb-out { opacity: 0; transition-duration: .4s; }
+		#stage { --l: var(--team-a); --r: var(--team-b); }
 
 		/* ---------- Diagonales aux couleurs des équipes ---------- */
 		.wash { position: absolute; top: 0; bottom: 0; width: 1100px; opacity: .55; }
@@ -31,7 +33,12 @@
 		.team { display: flex; align-items: center; gap: 34px; min-width: 0; }
 		.team.r { flex-direction: row-reverse; text-align: right; }
 		.team .logo { flex: 0 0 250px; height: 250px; display: grid; place-items: center; position: relative; }
-		.team .logo .halo { position: absolute; inset: 6%; border-radius: 50%; background: var(--c); filter: blur(60px); }
+		/* Halo : profil d'un disque de 220 px flouté à 60 px, dessiné en dégradé (un filtre flou animé coûte cher à OBS) */
+		.team .logo .halo { position: absolute; inset: -150px; background: radial-gradient(circle 275px,
+			color-mix(in srgb, var(--c) 81%, transparent) 0, color-mix(in srgb, var(--c) 79%, transparent) 25px, color-mix(in srgb, var(--c) 71%, transparent) 50px,
+			color-mix(in srgb, var(--c) 59%, transparent) 75px, color-mix(in srgb, var(--c) 44%, transparent) 100px, color-mix(in srgb, var(--c) 30%, transparent) 125px,
+			color-mix(in srgb, var(--c) 18%, transparent) 150px, color-mix(in srgb, var(--c) 9.5%, transparent) 175px, color-mix(in srgb, var(--c) 4.4%, transparent) 200px,
+			color-mix(in srgb, var(--c) 1.7%, transparent) 225px, color-mix(in srgb, var(--c) .6%, transparent) 250px, transparent 275px); }
 		.team .logo .m-float { position: relative; }
 		.team .txt { min-width: 0; flex: 1; }
 		.team .tag { display: inline-block; padding: 4px 16px; background: var(--c); color: #04061a; font: 700 18px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
@@ -115,7 +122,7 @@
 	</style>
 </head>
 <body>
-	<div id="stage">
+	<div id="stage" class="kb-scene">
 		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div><div class="m-drift"></div></div>
 		<div class="wash l"></div><div class="wash r"></div>
 		<div class="diag"></div><div class="diag d2"></div><div class="diag d3"></div>
@@ -150,19 +157,17 @@
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/match.js"></script>
 	<script>
-		const M = window.KBMatch;
-		const clone = (v) => JSON.parse(JSON.stringify(v));
-		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
+		const gfx = KBMatch.gfx();
 		const stage = KB.$('#stage');
-		const presence = KB.presence(stage, 450);
+		const scene = KB.scene(stage, { outMs: 450 });
 		KB.$('#kbs').src = KB.img.kbs;
 		KB.$('#logoCycom').src = KB.img.cycom;
 		KB.$('#logoEpitech').src = KB.img.epitech;
 
-		const fallbackColor = (key) => (key === 'B' ? '#ff4655' : '#3b8fe6');
 		const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
 		const statVal = (pl, k) => (pl && pl.stats && pl.stats[k] && typeof pl.stats[k].value === 'number' ? pl.stats[k].value : null);
 		const esc = KB.esc;
+		const fitName = (el) => KB.fit(el, { max: 76, min: 50, wrap: true });
 
 		function teamBlock(team, key) {
 			const players = ((team && team.players) || []).filter((p) => p && p.riotId);
@@ -229,7 +234,7 @@
 			const acs = avg(withData.map((p) => statVal(p, 'acs')).filter((v) => v != null));
 			const kd = avg(withData.map((p) => statVal(p, 'kd')).filter((v) => v != null));
 			const hs = avg(withData.map((p) => statVal(p, 'hs')).filter((v) => v != null));
-			const cell = (v, k) => `<div><div class="v" data-v="${v}">${v}</div><div class="k">${k}</div></div>`;
+			const cell = (v, k) => `<div><div class="v" data-v="${esc(v)}">${esc(v)}</div><div class="k">${k}</div></div>`;
 			return {
 				na: false,
 				html: cell(acs != null ? acs.toFixed(0) : '–', 'ACS moy.') + cell(kd != null ? kd.toFixed(2) : '–', 'K/D moy.') + cell(hs != null ? hs.toFixed(1) + '%' : '–', 'HS% moy.')
@@ -247,8 +252,8 @@
 			const sides = KB.sides(match);
 			const cur = (match.maps || [])[match.currentMap];
 			const mapName = cur && cur.map;
-			stage.style.setProperty('--l', (sides.left && sides.left.color) || fallbackColor(sides.leftKey));
-			stage.style.setProperty('--r', (sides.right && sides.right.color) || fallbackColor(sides.rightKey));
+			stage.style.setProperty('--l', KB.teamColor(sides.left, sides.leftKey));
+			stage.style.setProperty('--r', KB.teamColor(sides.right, sides.rightKey));
 			KB.$('#stageLbl').textContent = match.stage || '';
 			KB.$('#format').textContent = KB.formatLabel(match.format) || 'BO1';
 			const sc = KB.seriesScore(match);
@@ -257,10 +262,10 @@
 			if (KB.$('#series').innerHTML !== seriesHtml) { KB.$('#series').innerHTML = seriesHtml; if (!entering && played) KB.$('#series b').classList.add('m-bump'); }
 
 			for (const [side, team, key] of [['L', sides.left, sides.leftKey], ['R', sides.right, sides.rightKey]]) {
-				const color = (team && team.color) || fallbackColor(key);
+				const color = KB.teamColor(team, key);
 				const t = KB.$('#team' + side);
 				t.style.setProperty('--c', color);
-				if (setHTML(t, teamBlock(team, key), side, 'team') || entering) M.fit(t.querySelector('.name'), 76, 50, true);
+				if (setHTML(t, teamBlock(team, key), side, 'team') || entering) fitName(t.querySelector('.name'));
 				const r = KB.$('#roster' + side);
 				r.style.setProperty('--c', color);
 				renderRoster(side, team, mapName, entering);
@@ -274,13 +279,16 @@
 			}
 		}
 
-		let shown = false;
-		document.fonts.ready.then(() => { if (shown) KB.$$('.team .name').forEach((n) => M.fit(n, 76, 50, true)); });
+		// Polices chargées après le premier rendu : on réajuste la taille des noms
+		document.fonts.ready.then(() => { if (scene.visible) KB.$$('.team .name').forEach(fitName); });
 		KB.watch(['match', 'teams', 'playerProfiles', 'playerData', 'valorantData', gfx], () => {
 			const vis = !!(gfx.value && gfx.value.versus && gfx.value.versus.visible);
-			if (vis && !shown) { shown = true; cache.L = {}; cache.R = {}; render(true); presence.show(); }
-			else if (!vis && shown) { shown = false; presence.hide(); }
-			else if (shown) render(false);
+			// Rendu d'apparition (scene.visible encore faux) : on repart de zéro pour rejouer les entrées
+			scene.set(vis, () => {
+				const entering = !scene.visible;
+				if (entering) { cache.L = {}; cache.R = {}; }
+				render(entering);
+			});
 		});
 	</script>
 </body>

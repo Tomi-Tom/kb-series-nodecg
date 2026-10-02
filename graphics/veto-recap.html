@@ -2,13 +2,13 @@
 <html lang="fr" class="kb-graphic">
 <head>
 	<meta charset="utf-8">
+	<title>Récap du veto</title>
+	<!-- Récapitulatif du veto : maps jouées dans l'ordre (pick / decider, côtés, score une fois jouée) et rappel des bans.
+	     Lit match, teams, veto, valorantData et matchGraphics.vetoRecap (visibilité).
+	     Piloté par le panneau « Veto » (dashboard/veto.html). -->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/match.css">
 	<style>
-		#stage { position: absolute; inset: 0; visibility: hidden; opacity: 0; transition: opacity .45s ease; }
-		#stage.kb-in { opacity: 1; }
-		#stage.kb-out { opacity: 0; transition-duration: .4s; }
-
 		/* ---------- En-tête ---------- */
 		#head { position: absolute; left: 0; right: 0; top: 62px; text-align: center; }
 		#head .kb-kicker { font-size: 18px; }
@@ -46,7 +46,7 @@
 		.card .mn { font: 400 84px/0.95 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-shadow: 0 4px 24px rgba(0, 0, 0, .6); }
 		.card .by { margin-top: 14px; display: flex; align-items: center; gap: 12px; min-width: 0; }
 		.card .by .lb { flex: 0 0 auto; padding: 3px 12px; font: 700 13px var(--kb-ui); letter-spacing: .24em; text-transform: uppercase; background: var(--c); color: #04061a; }
-		.card.decider .by .lb { background: linear-gradient(180deg, #ffe08a, var(--kb-gold-hi)); color: #1a1430; }
+		.card.decider .by .lb { background: linear-gradient(180deg, #ffe08a, var(--kb-gold-hi)); color: var(--kb-ink); }
 		.card .by .tn { font: 400 30px/1.1 var(--kb-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.card.decider .by .tn { color: #ffe9b0; }
 		.card .sides { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -78,7 +78,7 @@
 	</style>
 </head>
 <body>
-	<div id="stage">
+	<div id="stage" class="kb-scene">
 		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div><div class="m-drift"></div></div>
 		<div class="kb-frame"></div>
 
@@ -102,30 +102,36 @@
 	<script>
 		const M = window.KBMatch;
 		const esc = KB.esc;
-		const clone = (v) => JSON.parse(JSON.stringify(v));
-		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
+		const gfx = M.gfx();
 		const stage = KB.$('#stage');
-		const presence = KB.presence(stage, 450);
+		const scene = KB.scene(stage, { outMs: 450 });
 		KB.$('#logoKbs').src = KB.img.kbs;
 		KB.$('#logoCycom').src = KB.img.cycom;
 		KB.$('#logoEpitech').src = KB.img.epitech;
 
-		const teamOf = (k) => KB.team(k === 'A' ? KB.rep.match.value.teamA : k === 'B' ? KB.rep.match.value.teamB : null);
-		const color = (k) => { const t = teamOf(k); return (t && t.color) || (k === 'B' ? '#ff4655' : '#3b8fe6'); };
+		const teamOf = (k) => { const m = KB.rep.match.value || {}; return KB.team(k === 'A' ? m.teamA : k === 'B' ? m.teamB : null); };
+		const color = (k) => KB.teamColor(teamOf(k), k);
+		const mapEntry = (match, name) => (match.maps || []).find((x) => x.map === name) || null;
+		const fitName = (el) => KB.fit(el, { max: el.closest('.narrow') ? 60 : 84, min: 36, wrap: false });
 		const nameOf = (k) => { const t = teamOf(k); return t ? t.name : 'Équipe ' + k; };
 		const tagOf = (k) => { const t = teamOf(k); return t ? t.tag || t.name : 'Équipe ' + k; };
 
 		let prevKeys = [];
 		let built = '';
 
-		function cardHtml(s, i, steps, n, w) {
+		function cardHtml(s, i, steps, w) {
+			const match = KB.rep.match.value || {};
 			const stepIndex = steps.indexOf(s);
 			const d = KB.map(s.map);
-			const mm = ((KB.rep.match.value || {}).maps || []).find((x) => x.map === s.map);
+			const mm = mapEntry(match, s.map);
 			const isDec = s.action === 'decider';
 			let status = '';
 			if (mm && mm.status === 'live') status = '<span class="kb-pill kb-pill--live">En cours</span>';
-			else if (mm && mm.status === 'done') status = `<div class="done">${+mm.scoreA || 0} – ${+mm.scoreB || 0}<small>${mm.winner ? 'Victoire ' + esc(tagOf(mm.winner)) : 'Terminée'}</small></div>`;
+			else if (mm && mm.status === 'done') {
+				// Score dans l'ordre des équipes affichées (gauche – droite, match.swap compris)
+				const { leftKey, rightKey } = KB.sides(match);
+				status = `<div class="done">${+mm['score' + leftKey] || 0} – ${+mm['score' + rightKey] || 0}<small>${mm.winner ? 'Victoire ' + esc(tagOf(mm.winner)) : 'Terminée'}</small></div>`;
+			}
 			let sides;
 			if (s.side) {
 				const chooser = s.sideTeam || M.defaultSideTeam(steps, stepIndex);
@@ -141,7 +147,7 @@
 				? '<div class="by"><span class="lb">Decider</span><span class="tn">Map décisive</span></div>'
 				: `<div class="by">${KB.teamLogo(teamOf(s.team), 46)}<span class="lb">Pick</span><span class="tn">${esc(nameOf(s.team))}</span></div>`;
 			return `<div class="cw kb-anim kb-anim--pop" style="--i:${3 + i};--w:${w}px">
-				<div class="card ${isDec ? 'decider' : 'pick'} ${w < 440 ? 'narrow' : ''}" style="--c:${isDec ? 'var(--kb-gold-hi)' : color(s.team)};--i:${i}">
+				<div class="card ${isDec ? 'decider' : 'pick'} ${w < 440 ? 'narrow' : ''}" style="--c:${isDec ? 'var(--kb-gold-hi)' : esc(color(s.team))};--i:${i}">
 					<div class="img" style="${d ? `background-image:url('${esc(d.splash || d.listView)}')` : ''}"></div>
 					<div class="shade"></div><div class="gl m-glint" style="--gd:${2.5 + i * 1.3}s"></div><div class="edge"></div>
 					<div class="num"><b>${String(i + 1).padStart(2, '0')}</b><span>Map</span></div>
@@ -153,37 +159,39 @@
 		function render(entering) {
 			const match = KB.rep.match.value || {};
 			const steps = (KB.rep.veto.value && KB.rep.veto.value.steps) || [];
-			KB.$('#kicker').textContent = [match.stage, KB.formatLabel(match.format)].filter(Boolean).join(' · ');
+			KB.$('#kicker').textContent = KB.joinDot(match.stage, KB.formatLabel(match.format));
 			const sides = KB.sides(match);
-			const mu = `<div class="t" style="--c:${color(sides.leftKey)}"><span class="bar"></span>${KB.teamLogo(sides.left, 56)}<span>${esc(nameOf(sides.leftKey))}</span></div>
+			const mu = `<div class="t" style="--c:${esc(color(sides.leftKey))}"><span class="bar"></span>${KB.teamLogo(sides.left, 56)}<span>${esc(nameOf(sides.leftKey))}</span></div>
 				<span class="vs">VS</span>
-				<div class="t r" style="--c:${color(sides.rightKey)}"><span class="bar"></span>${KB.teamLogo(sides.right, 56)}<span>${esc(nameOf(sides.rightKey))}</span></div>`;
+				<div class="t r" style="--c:${esc(color(sides.rightKey))}"><span class="bar"></span>${KB.teamLogo(sides.right, 56)}<span>${esc(nameOf(sides.rightKey))}</span></div>`;
 			if (KB.$('#matchup').innerHTML !== mu) KB.$('#matchup').innerHTML = mu;
 
 			const order = steps.filter((s) => s.action !== 'ban' && s.map);
 			const n = order.length;
 			const w = Math.min(600, Math.floor((1780 - 28 * (n - 1)) / Math.max(n, 1)));
-			const keys = order.map((s) => JSON.stringify([s.map, s.action, s.team, s.side, s.sideTeam,
-				((match.maps || []).find((x) => x.map === s.map) || {}).status, ((match.maps || []).find((x) => x.map === s.map) || {}).scoreA, ((match.maps || []).find((x) => x.map === s.map) || {}).scoreB,
-				teamOf(s.team) && teamOf(s.team).name, teamOf('A') && teamOf('A').logo, teamOf('B') && teamOf('B').logo]));
+			const keys = order.map((s) => {
+				const mm = mapEntry(match, s.map) || {};
+				return JSON.stringify([s.map, s.action, s.team, s.side, s.sideTeam, mm.status, mm.scoreA, mm.scoreB, mm.winner, !!match.swap,
+					teamOf(s.team) && teamOf(s.team).name, teamOf('A') && teamOf('A').logo, teamOf('B') && teamOf('B').logo]);
+			});
 			const box = KB.$('#cards');
 			const layout = order.map((s) => s.map).join('|') + '/' + w;
 			if (entering || layout !== built) {
-				box.innerHTML = order.map((s, i) => cardHtml(s, i, steps, n, w)).join('');
+				box.innerHTML = order.map((s, i) => cardHtml(s, i, steps, w)).join('');
 				// cartes ajoutées après l'entrée : visibles directement, avec un petit rebond
 				if (!entering) KB.$$('.cw', box).forEach((el, i) => { el.style.animation = 'none'; el.style.opacity = 1; if (keys[i] !== prevKeys[i]) el.firstElementChild.classList.add('changed'); });
 				built = layout;
 			} else {
 				keys.forEach((k, i) => {
 					if (k === prevKeys[i]) return;
-					const tmp = document.createElement('div'); tmp.innerHTML = cardHtml(order[i], i, steps, n, w);
+					const tmp = document.createElement('div'); tmp.innerHTML = cardHtml(order[i], i, steps, w);
 					const el = tmp.firstElementChild; el.style.animation = 'none'; el.style.opacity = 1;
 					el.firstElementChild.classList.add('changed');
 					el.querySelector('.img').style.animation = 'img-drift 18s ease-in-out infinite alternate';
 					box.children[i].replaceWith(el);
 				});
 			}
-			KB.$$('.mn', box).forEach((el) => M.fit(el, w < 440 ? 60 : 84, 36));
+			KB.$$('.mn', box).forEach(fitName);
 			prevKeys = keys;
 			KB.$('#empty').style.display = n ? 'none' : 'block';
 
@@ -191,13 +199,12 @@
 			KB.$('#bans').innerHTML = bans.length ? `<span class="lbl">Bans</span>${bans.map((s) => `<div class="b">${KB.teamLogo(teamOf(s.team), 30)}<span>${esc(s.map)}</span></div>`).join('')}` : '';
 		}
 
-		let shown = false;
-		document.fonts.ready.then(() => { if (shown) KB.$$('#cards .mn').forEach((el) => M.fit(el, el.closest('.narrow') ? 60 : 84, 36)); });
+		// Polices chargées après le premier rendu : on réajuste la taille des noms de map
+		document.fonts.ready.then(() => { if (scene.visible) KB.$$('#cards .mn').forEach(fitName); });
 		KB.watch(['match', 'teams', 'veto', 'valorantData', gfx], () => {
 			const vis = !!(gfx.value && gfx.value.vetoRecap && gfx.value.vetoRecap.visible);
-			if (vis && !shown) { shown = true; render(true); presence.show(); }
-			else if (!vis && shown) { shown = false; presence.hide(); }
-			else if (shown) render(false);
+			// Rendu d'apparition (scene.visible encore faux) : cartes reconstruites, entrées rejouées
+			scene.set(vis, () => render(!scene.visible));
 		});
 	</script>
 </body>

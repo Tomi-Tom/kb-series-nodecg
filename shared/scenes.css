@@ -6,7 +6,7 @@
 /* Illustration de l'affiche (V Valorant) posée en haut, fondue sur les bords */
 .sc-art {
 	position: absolute; left: 50%; top: 0; width: 1700px; height: 780px; margin-left: -850px;
-	background: url('img/poster-art.png') center top / 100% auto no-repeat;
+	background: url('img/poster-art.webp') center top / 100% auto no-repeat;
 	-webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(180deg, #000 55%, transparent 100%);
 	-webkit-mask-composite: source-in; mask-composite: intersect;
 	transform-origin: 50% 30%;
@@ -26,13 +26,11 @@
 @keyframes sc-frame-in { from { opacity: 0; clip-path: inset(50% 0 50% 0); } to { opacity: 1; clip-path: inset(-10px); } }
 
 .sc-marquee { top: 0; z-index: 5; }
-.sc-marquee--bottom { top: auto; bottom: 0; border-bottom: 0; border-top: 2px solid; }
 .kb-in .sc-marquee { animation: sc-drop .8s var(--kb-ease-out) both; }
 @keyframes sc-drop { from { transform: translateY(-100%); } to { transform: none; } }
 
 /* Lignes à pointes façon "TOURNOI 5v5" */
-.sc-wing { position: relative; height: 4px; flex: 1; border-radius: 4px; background: linear-gradient(90deg, transparent, var(--kb-blue) 30%, var(--kb-blue-hi)); box-shadow: 0 0 10px var(--kb-blue-glow); transform-origin: right center; }
-.sc-wing { overflow: hidden; }
+.sc-wing { position: relative; overflow: hidden; height: 4px; flex: 1; border-radius: 4px; background: linear-gradient(90deg, transparent, var(--kb-blue) 30%, var(--kb-blue-hi)); box-shadow: 0 0 10px var(--kb-blue-glow); transform-origin: right center; }
 .sc-wing::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 22%; background: linear-gradient(90deg, transparent, #fff, transparent); opacity: .9; transform: translateX(-100%); }
 .kb-in .sc-wing::after { animation: sc-glint 6s var(--kb-ease-inout) 2.4s infinite; }
 .kb-in .sc-wing--r::after { animation-delay: 2.9s; }
@@ -50,9 +48,6 @@
 .sc-cycom { height: 92px; }
 .sc-epitech { height: 40px; }
 .sc-partner-sep { width: 1px; align-self: stretch; background: linear-gradient(180deg, transparent, var(--kb-gold-dim), transparent); }
-.sc-partners--row .sc-partner { flex-direction: row; gap: 16px; }
-.sc-partners--row .sc-cycom { height: 64px; }
-.sc-partners--row .sc-epitech { height: 30px; }
 
 .sc-kbs { filter: drop-shadow(0 0 30px rgba(78, 170, 255, .25)) drop-shadow(0 8px 20px rgba(0, 0, 0, .6)); }
 
@@ -63,7 +58,6 @@
 .sc-live { position: relative; display: inline-flex; align-items: center; gap: 10px; }
 .sc-live::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: sc-blink 1.2s ease-in-out infinite; }
 @keyframes sc-blink { 50% { opacity: .25; } }
-@keyframes sc-pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 70, 85, .5), inset 0 0 0 1px rgba(255, 70, 85, .6); } 50% { box-shadow: 0 0 26px 2px rgba(255, 70, 85, .35), inset 0 0 0 1px rgba(255, 70, 85, 1); } }
 
 /* Gros chiffres compte à rebours */
 .sc-digits { font: 400 132px/1 var(--kb-display); letter-spacing: .02em; color: #fff; text-shadow: 0 0 18px var(--kb-blue-glow), 0 0 40px rgba(78, 170, 255, .3); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -128,11 +122,9 @@
 .kb-in .sc-wipe { animation: sc-wipe 1s var(--kb-ease-out) both; animation-delay: calc(var(--d, .2s) + var(--i, 0) * 70ms); }
 @keyframes sc-wipe { from { opacity: 1; clip-path: inset(-30% 100% -30% 0); transform: translateX(-24px); } to { opacity: 1; clip-path: inset(-30% -5% -30% -5%); transform: none; } }
 .sc-gleam { color: transparent !important; text-shadow: none !important; background: linear-gradient(100deg, var(--kb-text) 0%, var(--kb-text) 42%, #ffffff 47%, #bfe4ff 50%, #ffffff 53%, var(--kb-text) 58%, var(--kb-text) 100%); background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 0 26px rgba(78, 170, 255, .35)) drop-shadow(0 8px 24px rgba(0, 0, 0, .6)); animation: sc-gleam 8s ease-in-out 2.5s infinite; }
-.sc-gleam-wrap { filter: drop-shadow(0 0 26px rgba(78, 170, 255, .35)) drop-shadow(0 8px 24px rgba(0, 0, 0, .6)); }
 @keyframes sc-gleam { 0% { background-position: 100% 0; } 35%, 100% { background-position: 0 0; } }
 
-/* Néon : petit grésillement de temps en temps */
-.sc-neon-loop { animation: sc-neon 11s linear 4s infinite; }
+/* Néon : petit grésillement de temps en temps (keyframes utilisées par starting.html) */
 @keyframes sc-neon { 0%, 90%, 100% { opacity: 1; } 91% { opacity: .55; } 92% { opacity: 1; } 93.5% { opacity: .7; } 94.5% { opacity: 1; } }
 
 /* Flash de lumière qui traverse l'écran à l'entrée */

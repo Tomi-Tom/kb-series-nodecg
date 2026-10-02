@@ -1,0 +1,14 @@
+# Vérifie à chaque envoi sur GitHub que le code ne contient pas d'erreur évidente (npm run lint).
+name: CI
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint

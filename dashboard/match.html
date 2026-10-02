@@ -2,62 +2,59 @@
 <html lang="fr">
 <head>
 	<meta charset="utf-8">
+	<title>Match</title>
+	<!--
+		Panneau Match : phase, format, équipes, maps de la série (scores, statut, map en cours) et agents joués par map.
+		Écrit le replicant `match` ; affiche / masque Versus, Veto et Récap du veto via KBO (replicant `matchGraphics`).
+		Lit `veto` pour « Remplir depuis le veto ». N'envoie aucun message.
+	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
 		.bar { display: flex; gap: 10px; flex-wrap: wrap; }
-		.gfx { flex: 1 1 200px; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
-		.gfx .lbl { flex: 1; font-weight: 600; }
-		.gfx .lbl small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
-		.gfx button { min-width: 92px; }
+		.bar .ovrow { flex: 1 1 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+		.bar .ovrow .name { font-weight: 600; }
 		.sec { margin-top: 14px; }
+		.mt0 { margin-top: 0; }
 		.grid4 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
-		.teamsRow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+		.teamsRow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; margin-top: 6px; }
 		.teamsRow .swap { margin-bottom: 0; height: 36px; }
 		table { width: 100%; border-collapse: collapse; margin-top: 6px; }
 		th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; padding: 4px 4px; }
 		td { padding: 3px 4px; vertical-align: middle; }
 		td input, td select { padding: 5px 6px; }
+		td select.auto { width: auto; }
 		td.n { width: 22px; color: var(--muted); font-weight: 700; text-align: center; }
 		td.sc input { width: 54px; text-align: center; }
 		tr.cur td { background: rgba(201, 178, 116, .1); }
 		tr.cur td.n { color: var(--gold); }
-		.st { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; background: var(--line); }
-		.st.live { background: var(--red); box-shadow: 0 0 6px var(--red); } .st.done { background: var(--ok); }
 		td .mini { padding: 5px 8px; font-size: 12px; white-space: nowrap; }
-		.x { padding: 4px 8px; color: var(--muted); }
-		.confirm { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--gold); }
-		.confirm button { padding: 6px 10px; }
+		#mapsEmpty { margin-top: 6px; }
 		.actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+		.actions .spacer { flex: 1; }
 
 		/* Résumé des équipes du match */
 		.sumGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 		.sum { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c, var(--line)); border-radius: 6px; padding: 8px 10px; }
 		.sumHead { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 		.sumHead b { display: block; } .sumHead small { color: var(--muted); font-size: 11px; }
-		.sumHead .kb-team-mono { display: grid; place-items: center; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); background: linear-gradient(135deg, var(--c, #3b8fe6), #111845); color: #fff; font-weight: 800; flex: 0 0 auto; }
-		.sumHead img { object-fit: contain; flex: 0 0 auto; }
+		.sumHead .kb-team-mono { font-weight: 800; }
 		.sumP { display: grid; grid-template-columns: 16px 1fr auto 22px; gap: 6px; align-items: center; padding: 3px 0; border-top: 1px solid rgba(42, 52, 128, .6); font-size: 13px; }
 		.sumP .n { color: var(--muted); font-size: 11px; font-weight: 700; } .sumP .pn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.sumP .pr { color: var(--muted); font-size: 11px; } .sumP img { width: 22px; height: 22px; }
 		.sumMiss { margin-top: 4px; font-size: 12px; color: var(--gold); }
 		.pkGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
 		.pkCol h4 { margin: 0 0 6px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-		.pkCol h4 i { width: 4px; height: 14px; border-radius: 2px; }
+		.pkCol h4 i { width: 4px; height: 14px; border-radius: 2px; background: var(--c); }
 		.pk { display: grid; grid-template-columns: 34px 1fr 140px; gap: 8px; align-items: center; margin-top: 4px; }
-		.pk .ic { width: 34px; height: 34px; border-radius: 4px; background: #050822 center / cover; border: 1px solid var(--line); }
+		.pk .ic { width: 34px; height: 34px; border-radius: 4px; background: #050822 var(--img, none) center / cover; border: 1px solid var(--line); }
 		.pk .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.pk .pn small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
 		.pk select { padding: 5px 6px; }
-		.demo { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 	</style>
 </head>
 <body>
-	<!-- Visibilité des graphics -->
-	<div class="bar">
-		<div class="gfx"><span class="dot" id="dotVersus"></span><div class="lbl">Écran Versus<small>graphics/versus.html</small></div><button id="btnVersus"></button></div>
-		<div class="gfx"><span class="dot" id="dotVeto"></span><div class="lbl">Écran Veto<small>graphics/veto.html</small></div><button id="btnVeto"></button></div>
-		<div class="gfx"><span class="dot" id="dotRecap"></span><div class="lbl">Récap du veto<small>graphics/veto-recap.html</small></div><button id="btnRecap"></button></div>
-	</div>
+	<!-- Écrans du match : AFFICHER / ● À L'ANTENNE -->
+	<div class="bar" id="ovBar"></div>
 
 	<!-- Match -->
 	<div class="sec" id="secMatch">
@@ -65,21 +62,21 @@
 		<div class="card">
 			<div class="grid4">
 				<div>
-					<label>Phase</label>
-					<div class="row" style="margin-top:0">
+					<label for="stageSel">Phase</label>
+					<div class="row mt0">
 						<select id="stageSel"></select>
-						<input id="stageFree" placeholder="Libellé libre" style="display:none">
+						<input id="stageFree" class="hidden" placeholder="Libellé libre" aria-label="Phase (libellé libre)">
 					</div>
 				</div>
 				<div>
-					<label>Format</label>
+					<label for="format">Format</label>
 					<select id="format"><option value="bo1">BO1</option><option value="bo3">BO3</option><option value="bo5">BO5</option></select>
 				</div>
 			</div>
-			<div class="teamsRow" style="margin-top:6px">
-				<div><label>Équipe A</label><select id="teamA"></select></div>
-				<button class="swap" id="swap" title="Inverse gauche / droite à l'écran">⇄ Swap</button>
-				<div><label>Équipe B</label><select id="teamB"></select></div>
+			<div class="teamsRow">
+				<div><label for="teamA">Équipe A</label><select id="teamA"></select></div>
+				<button class="swap" id="swap" title="Inverse gauche / droite à l'écran">⇄ Inverser gauche / droite</button>
+				<div><label for="teamB">Équipe B</label><select id="teamB"></select></div>
 			</div>
 			<div class="hint" id="swapHint"></div>
 
@@ -87,12 +84,12 @@
 				<thead><tr><th></th><th>Map</th><th>Pick</th><th>Score A</th><th>Score B</th><th>Vainqueur</th><th>Statut</th><th></th><th></th></tr></thead>
 				<tbody id="maps"></tbody>
 			</table>
-			<div class="empty" id="mapsEmpty" style="display:none;margin-top:6px">Aucune map dans la série. Ajoute-en ou remplis depuis le veto.</div>
+			<div class="empty hidden" id="mapsEmpty">Aucune map dans la série. Ajoute-en ou remplis depuis le veto.</div>
 			<div class="actions">
 				<button id="addMap">+ Ajouter une map</button>
-				<span id="fillWrap"><button class="gold" id="fillVeto">Remplir depuis le veto</button></span>
-				<span style="flex:1"></span>
-				<span id="resetWrap"><button class="danger" id="resetMatch">Réinitialiser le match</button></span>
+				<button class="gold" id="fillVeto">Remplir depuis le veto</button>
+				<span class="spacer"></span>
+				<button class="danger" id="resetMatch">Réinitialiser le match</button>
 			</div>
 			<div class="msg" id="matchMsg"></div>
 		</div>
@@ -102,10 +99,10 @@
 	<div class="sec" id="secPicks">
 		<h3>Agents joués par map</h3>
 		<div class="card">
-			<div class="row" style="margin-top:0">
-				<select id="pkMap"></select>
+			<div class="row mt0">
+				<select id="pkMap" aria-label="Map dont on saisit les agents"></select>
 				<button class="shrink" id="pkCopy">Copier depuis la map précédente</button>
-				<span class="shrink" id="pkClearWrap"><button class="danger" id="pkClear">Effacer</button></span>
+				<button class="shrink danger" id="pkClear">Effacer</button>
 			</div>
 			<div class="pkGrid" id="pkGrid"></div>
 			<div class="msg" id="pkMsg"></div>
@@ -119,73 +116,37 @@
 		<div class="hint">Créer / modifier les équipes et placer les joueurs : onglet <b>1. Match &amp; Joueurs</b> → panneau <b>Équipes &amp; Joueurs</b>.</div>
 	</div>
 
-	<!-- Démo -->
-	<div class="sec">
-		<h3>Données</h3>
-		<div class="card demo">
-			<span class="hint" style="margin:0">Recharge les équipes, le match, le veto et le planning de démo (écrase l'état actuel ; les joueurs ne sont pas inventés).</span>
-			<span id="demoWrap"><button id="demo">Charger les données de démo</button></span>
-		</div>
-		<div class="msg" id="demoMsg"></div>
-	</div>
-
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/match.js"></script>
-	<script src="../shared/tracker-import.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlays.js"></script>
 	<script>
 		const M = window.KBMatch;
-		const clone = (v) => JSON.parse(JSON.stringify(v));
-		const gfx = nodecg.Replicant('matchGraphics', { defaultValue: clone(M.MATCH_DEFAULTS.matchGraphics) });
-		const logos = nodecg.Replicant('assets:team-logos');
 		const $ = KB.$, esc = KB.esc;
-		const trk = (id) => { const p = KB.player(id); return p && p.hasTracker ? p : null; };
-		const trackerUrl = (riotId) => `https://tracker.gg/valorant/profile/riot/${encodeURIComponent(riotId)}/overview`;
+		const flash = (id, text, kind = 'ok') => KBD.flash(id, text, kind, 5000);
 
-		function msg(id, text, cls = '') { const el = $('#' + id); el.textContent = text; el.className = 'msg ' + cls; clearTimeout(el._t); if (text) el._t = setTimeout(() => { el.textContent = ''; }, 5000); }
-
-		/** Confirmation inline : remplace le bouton par "Sûr ? Oui / Non" pendant 5 s */
-		function confirmInline(wrap, question, onYes) {
-			const original = wrap.innerHTML;
-			wrap.innerHTML = `<span class="confirm">${esc(question)} <button class="danger" data-y>Oui</button><button data-n>Non</button></span>`;
-			const restore = () => { clearTimeout(t); wrap.innerHTML = original; bindStatic(); };
-			const t = setTimeout(restore, 6000);
-			wrap.querySelector('[data-y]').onclick = () => { restore(); onYes(); };
-			wrap.querySelector('[data-n]').onclick = restore;
-		}
-
-		/* ---------------- Visibilité ---------------- */
-		function renderGfx() {
-			for (const [k, btn, dot] of [['versus', '#btnVersus', '#dotVersus'], ['veto', '#btnVeto', '#dotVeto'], ['vetoRecap', '#btnRecap', '#dotRecap']]) {
-				const on = !!(gfx.value && gfx.value[k] && gfx.value[k].visible);
-				$(btn).textContent = on ? 'MASQUER' : 'AFFICHER';
-				$(btn).className = on ? 'danger' : 'show';
-				$(dot).classList.toggle('on', on);
-			}
-		}
-		$('#btnVersus').onclick = () => { gfx.value.versus.visible = !gfx.value.versus.visible; };
-		$('#btnVeto').onclick = () => { gfx.value.veto.visible = !gfx.value.veto.visible; };
-		$('#btnRecap').onclick = () => { gfx.value.vetoRecap = { visible: !(gfx.value.vetoRecap && gfx.value.vetoRecap.visible) }; };
+		/* ---------------- Écrans du match (exclusivité gérée par KBO) ---------------- */
+		const OVERLAYS = ['versus', 'veto', 'veto-recap'];
+		KBO.bind('#ovBar');
+		KB.watch(KBO.repNames(), KBD.deferWhileEditing('#ovBar', () => { $('#ovBar').innerHTML = OVERLAYS.map((id) => KBO.row(id)).join(''); }));
 
 		/* ---------------- Match ---------------- */
 		const match = () => KB.rep.match.value;
-		const teamLabel = (id) => { const t = KB.team(id); return t ? `${t.name}${t.tag ? ' (' + t.tag + ')' : ''}` : '—'; };
 		const tagOf = (key) => { const t = KB.team(key === 'A' ? match().teamA : match().teamB); return t ? t.tag || t.name : 'Équipe ' + key; };
 
 		function renderMatch() {
 			const m = match() || {};
-			const teams = Object.values(KB.rep.teams.value || {}).sort((a, b) => a.name.localeCompare(b.name));
 			// Phase
 			const isPreset = M.STAGES.includes(m.stage);
 			$('#stageSel').innerHTML = M.STAGES.map((s) => `<option ${s === m.stage ? 'selected' : ''}>${esc(s)}</option>`).join('')
 				+ `<option value="__free" ${!isPreset ? 'selected' : ''}>Autre (libre)…</option>`;
-			$('#stageFree').style.display = isPreset ? 'none' : '';
+			$('#stageFree').classList.toggle('hidden', isPreset);
 			$('#stageFree').value = isPreset ? '' : m.stage || '';
 			$('#format').value = m.format || 'bo3';
-			const opts = (sel) => '<option value="">— Aucune —</option>' + teams.map((t) => `<option value="${esc(t.id)}" ${t.id === sel ? 'selected' : ''}>${esc(t.name)}${t.tag ? ' (' + esc(t.tag) + ')' : ''}</option>`).join('');
-			$('#teamA').innerHTML = opts(m.teamA);
-			$('#teamB').innerHTML = opts(m.teamB);
+			$('#teamA').innerHTML = KBD.teamOptions(m.teamA, { empty: '— Aucune —' });
+			$('#teamB').innerHTML = KBD.teamOptions(m.teamB, { empty: '— Aucune —' });
 			$('#swap').classList.toggle('active', !!m.swap);
-			$('#swapHint').textContent = m.swap ? `Swap actif : ${tagOf('B')} à gauche, ${tagOf('A')} à droite à l'écran.` : '';
+			$('#swapHint').textContent = m.swap ? `Inversion active : ${tagOf('B')} à gauche, ${tagOf('A')} à droite à l'écran.` : '';
 
 			// Maps
 			const mapNames = KB.mapNames();
@@ -193,24 +154,25 @@
 			const sel = (opts, v) => opts.map(([val, lbl]) => `<option value="${esc(val)}" ${String(v ?? '') === val ? 'selected' : ''}>${esc(lbl)}</option>`).join('');
 			$('#maps').innerHTML = maps.map((x, i) => {
 				const names = mapNames.includes(x.map) || !x.map ? mapNames : [x.map, ...mapNames];
+				const st = x.status === 'live' || x.status === 'done' ? ' state-' + x.status : '';
 				return `<tr data-i="${i}" class="${m.currentMap === i ? 'cur' : ''}">
 					<td class="n">${i + 1}</td>
-					<td><select data-f="map">${sel([['', '—'], ...names.map((n) => [n, n])], x.map)}</select></td>
-					<td><select data-f="pickedBy">${sel([['', '—'], ['A', tagOf('A')], ['B', tagOf('B')], ['decider', 'Decider']], x.pickedBy)}</select></td>
-					<td class="sc"><input type="number" min="0" data-f="scoreA" value="${+x.scoreA || 0}"></td>
-					<td class="sc"><input type="number" min="0" data-f="scoreB" value="${+x.scoreB || 0}"></td>
-					<td><select data-f="winner">${sel([['', '—'], ['A', tagOf('A')], ['B', tagOf('B')]], x.winner)}</select></td>
-					<td><span class="st ${esc(x.status)}"></span><select data-f="status" style="width:auto">${sel([['upcoming', 'À venir'], ['live', 'En cours'], ['done', 'Terminée']], x.status || 'upcoming')}</select></td>
+					<td><select data-f="map" aria-label="Map ${i + 1}">${sel([['', '—'], ...names.map((n) => [n, n])], x.map)}</select></td>
+					<td><select data-f="pickedBy" aria-label="Pick de la map ${i + 1}">${sel([['', '—'], ['A', tagOf('A')], ['B', tagOf('B')], ['decider', 'Decider']], x.pickedBy)}</select></td>
+					<td class="sc"><input type="number" min="0" data-f="scoreA" value="${+x.scoreA || 0}" aria-label="Score A de la map ${i + 1}"></td>
+					<td class="sc"><input type="number" min="0" data-f="scoreB" value="${+x.scoreB || 0}" aria-label="Score B de la map ${i + 1}"></td>
+					<td><select data-f="winner" aria-label="Vainqueur de la map ${i + 1}">${sel([['', '—'], ['A', tagOf('A')], ['B', tagOf('B')]], x.winner)}</select></td>
+					<td><span class="state-dot${st}"></span><select data-f="status" class="auto" aria-label="Statut de la map ${i + 1}">${sel([['upcoming', 'À venir'], ['live', 'En cours'], ['done', 'Terminée']], x.status || 'upcoming')}</select></td>
 					<td>${m.currentMap === i ? '<button class="mini gold" disabled>Map en cours</button>' : '<button class="mini" data-act="current">Définir en cours</button>'}
 						<button class="mini" data-act="finish" title="Statut terminé + vainqueur selon le score">Terminer</button></td>
-					<td><button class="x" data-act="del" title="Supprimer">✕</button></td>
+					<td><button class="x" data-act="del" title="Supprimer la map (score et agents compris)">✕</button></td>
 				</tr>`;
 			}).join('');
-			$('#mapsEmpty').style.display = maps.length ? 'none' : '';
+			$('#mapsEmpty').classList.toggle('hidden', !!maps.length);
 		}
 
 		$('#stageSel').onchange = (e) => {
-			if (e.target.value === '__free') { $('#stageFree').style.display = ''; $('#stageFree').focus(); return; }
+			if (e.target.value === '__free') { $('#stageFree').classList.remove('hidden'); $('#stageFree').focus(); return; }
 			match().stage = e.target.value;
 		};
 		$('#stageFree').onchange = (e) => { match().stage = e.target.value.trim(); };
@@ -228,21 +190,30 @@
 			else if (v === '' && f !== 'map') v = null;
 			x[f] = v;
 		});
+		function deleteMap(i) {
+			const m = match(); const x = m.maps[i];
+			if (!x) return;
+			m.maps.splice(i, 1);
+			if (m.currentMap >= m.maps.length) m.currentMap = Math.max(0, m.maps.length - 1);
+			flash('matchMsg', `Map ${i + 1} (${x.map || '—'}) supprimée.`);
+		}
 		$('#maps').addEventListener('click', (e) => {
 			const b = e.target.closest('button[data-act]'); if (!b) return;
 			const i = +b.closest('tr').dataset.i; const m = match(); const x = m.maps[i];
 			if (b.dataset.act === 'current') {
 				m.currentMap = i;
 				if (x.status === 'upcoming') x.status = 'live';
-				msg('matchMsg', `Map ${i + 1} (${x.map || '—'}) définie comme map en cours.`, 'ok');
+				flash('matchMsg', `Map ${i + 1} (${x.map || '—'}) définie comme map en cours.`);
 			} else if (b.dataset.act === 'finish') {
-				const a = +x.scoreA || 0, bb = +x.scoreB || 0;
-				if (a === bb) return msg('matchMsg', 'Score à égalité : choisis le vainqueur à la main.', 'err');
+				// Score lu à l'écran : un score tapé juste avant le clic n'est peut-être pas encore revenu du serveur
+				const shown = (f) => Math.max(0, parseInt(b.closest('tr').querySelector(`[data-f="${f}"]`).value, 10) || 0);
+				const a = shown('scoreA'), bb = shown('scoreB');
+				if (a === bb) return flash('matchMsg', 'Score à égalité : choisis le vainqueur à la main.', 'err');
 				x.winner = a > bb ? 'A' : 'B'; x.status = 'done';
-				msg('matchMsg', `${x.map || 'Map ' + (i + 1)} terminée, victoire ${tagOf(x.winner)}.`, 'ok');
+				flash('matchMsg', `${x.map || 'Map ' + (i + 1)} terminée, victoire ${tagOf(x.winner)}.`);
 			} else if (b.dataset.act === 'del') {
-				m.maps.splice(i, 1);
-				if (m.currentMap >= m.maps.length) m.currentMap = Math.max(0, m.maps.length - 1);
+				// On perd le score et les agents joués : 2 clics
+				KBD.arm(b, () => deleteMap(i), { label: 'Supprimer ?' });
 			}
 		});
 		$('#addMap').onclick = () => {
@@ -253,7 +224,7 @@
 		function fillFromVeto() {
 			const steps = (KB.rep.veto.value && KB.rep.veto.value.steps) || [];
 			const chosen = steps.filter((s) => (s.action === 'pick' || s.action === 'decider') && s.map);
-			if (!chosen.length) return msg('matchMsg', 'Aucun pick ni decider dans le veto.', 'err');
+			if (!chosen.length) return flash('matchMsg', 'Aucun pick ni decider dans le veto.', 'err');
 			const m = match();
 			const old = m.maps || [];
 			m.maps = chosen.map((s) => {
@@ -261,37 +232,34 @@
 				return prev ? { ...prev, pickedBy: s.action === 'decider' ? 'decider' : s.team } : { map: s.map, pickedBy: s.action === 'decider' ? 'decider' : s.team, scoreA: 0, scoreB: 0, winner: null, status: 'upcoming' };
 			});
 			if (m.currentMap >= m.maps.length) m.currentMap = 0;
-			msg('matchMsg', `${chosen.length} map(s) importée(s) depuis le veto : ${chosen.map((s) => s.map).join(', ')}.`, 'ok');
+			flash('matchMsg', `${chosen.length} map(s) importée(s) depuis le veto : ${chosen.map((s) => s.map).join(', ')}.`);
 		}
 		function resetMatch() {
 			const m = match();
 			m.maps = (m.maps || []).map((x) => ({ ...x, scoreA: 0, scoreB: 0, winner: null, status: 'upcoming' }));
 			m.currentMap = 0; m.swap = false;
-			msg('matchMsg', 'Match réinitialisé (scores, vainqueurs et statuts remis à zéro).', 'ok');
+			flash('matchMsg', 'Match réinitialisé (scores, vainqueurs et statuts remis à zéro).');
 		}
 
-		function bindStatic() {
-			$('#fillVeto').onclick = () => {
-				const hasScores = (match().maps || []).some((x) => x.scoreA || x.scoreB || x.winner);
-				if (hasScores) confirmInline($('#fillWrap'), 'Remplacer la liste (scores conservés pour les maps identiques) ?', fillFromVeto);
-				else fillFromVeto();
-			};
-			$('#resetMatch').onclick = () => confirmInline($('#resetWrap'), 'Remettre scores et statuts à zéro ?', resetMatch);
-			$('#demo').onclick = () => confirmInline($('#demoWrap'), 'Écraser l\'état actuel ?', () => {
-				nodecg.sendMessage('demo:seed').then(() => msg('demoMsg', 'Données de démo chargées.', 'ok')).catch((e) => msg('demoMsg', String(e), 'err'));
-			});
-		}
+		// Des scores existent déjà : remplacer la liste demande confirmation (les scores des maps identiques sont conservés)
+		$('#fillVeto').onclick = (e) => {
+			const btn = e.currentTarget;
+			const hasScores = (match().maps || []).some((x) => x.scoreA || x.scoreB || x.winner);
+			if (hasScores || btn.classList.contains('armed')) KBD.arm(btn, fillFromVeto, { label: 'Remplacer la liste ?' });
+			else fillFromVeto();
+		};
+		KBD.confirm('#resetMatch', resetMatch, { label: 'Remettre le match à zéro ?' });
 
 		/* ---------------- Résumé des équipes du match ---------------- */
 		function renderTeamSum() {
 			const m = match() || {};
 			const col = (key) => {
 				const t = KB.team(key === 'A' ? m.teamA : m.teamB);
-				if (!t) return `<div class="sum"><div class="sumHead"><div class="kb-team-mono" style="width:40px;height:40px;font-size:14px">?</div><div><b>Équipe ${key}</b><small>Aucune équipe choisie (menu Équipe ${key} ci-dessus)</small></div></div></div>`;
+				if (!t) return `<div class="sum"><div class="sumHead">${KB.teamLogo(null, 40)}<div><b>Équipe ${key}</b><small>Aucune équipe choisie (menu Équipe ${key} ci-dessus)</small></div></div></div>`;
 				const roster = KB.roster(t);
 				const rows = roster.slice(0, 5).map((pl, i) => `<div class="sumP"><span class="n">${i + 1}</span><span class="pn">${esc(pl.name)}</span><span class="pr">${esc(KB.roleLabel(pl.role))}</span>${pl.rank && pl.rank.icon ? `<img src="${esc(pl.rank.icon)}" alt="" title="${esc(pl.rank.name)}">` : '<i></i>'}</div>`).join('');
 				const missing = Math.max(0, 5 - roster.length);
-				return `<div class="sum" style="--c:${esc(t.color || '#3b8fe6')}"><div class="sumHead">${KB.teamLogo(t, 40)}<div><b>${esc(t.name)}</b><small>${esc(t.tag || '')} · Équipe ${key}${roster.length > 5 ? ' · ' + (roster.length - 5) + ' rempl.' : ''}</small></div></div>
+				return `<div class="sum" style="--c:${esc(KB.teamColor(t, key))}"><div class="sumHead">${KB.teamLogo(t, 40)}<div><b>${esc(t.name)}</b><small>${esc(t.tag || '')} · Équipe ${key}${roster.length > 5 ? ' · ' + (roster.length - 5) + ' rempl.' : ''}</small></div></div>
 					${rows}${missing ? `<div class="sumMiss">${roster.length}/5 joueurs : il en manque ${missing}</div>` : ''}</div>`;
 			};
 			$('#teamSum').innerHTML = col('A') + col('B');
@@ -299,6 +267,7 @@
 
 		/* ---------------- Agents joués par map (match.maps[i].picks) ---------------- */
 		let pkSel = null;   // index choisi ; null = suit la map en cours
+		let pkShown = null; // map affichée : agents, « Copier » et « Effacer » visent celle que l'on voit (« Effacer » armé est désarmé si elle change)
 		const pkIndex = () => {
 			const m = match() || {}; const n = (m.maps || []).length;
 			if (!n) return -1;
@@ -308,6 +277,7 @@
 		function renderPicks() {
 			const m = match() || {}; const maps = m.maps || [];
 			const i = pkIndex();
+			if (i !== pkShown) { KBD.disarm('#pkClear'); pkShown = i; }
 			$('#pkMap').innerHTML = maps.length
 				? maps.map((x, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>Map ${k + 1} — ${esc(x.map || '?')}${k === m.currentMap ? ' (en cours)' : ''}</option>`).join('')
 				: '<option>Aucune map dans la série</option>';
@@ -319,72 +289,48 @@
 			const col = (key) => {
 				const team = KB.team(key === 'A' ? m.teamA : m.teamB);
 				const roster = KB.roster(team);
-				const head = `<h4><i style="background:${esc((team && team.color) || '#3b8fe6')}"></i>${esc(team ? team.name : 'Équipe ' + key)}</h4>`;
+				const head = `<h4><i style="--c:${esc(KB.teamColor(team, key))}"></i>${esc(team ? team.name : 'Équipe ' + key)}</h4>`;
 				if (!team) return `<div class="pkCol">${head}<div class="empty">Aucune équipe ${key}.</div></div>`;
 				if (!roster.length) return `<div class="pkCol">${head}<div class="empty">Aucun joueur (panneau Équipes &amp; Joueurs).</div></div>`;
 				return `<div class="pkCol">${head}${roster.map((pl) => {
 					const cur = picks[pl.key] || '';
 					const info = cur && KB.agentInfo(cur);
 					const opts = ['', ...agents, ...(cur && !agents.includes(cur) ? [cur] : [])].map((a) => `<option value="${esc(a)}" ${a === cur ? 'selected' : ''}>${a ? esc(a) : '— Aucun —'}</option>`).join('');
-					return `<div class="pk"><span class="ic" style="${info && info.icon ? `background-image:url('${esc(info.icon)}')` : ''}"></span>
+					return `<div class="pk"><span class="ic"${info && info.icon ? ` style="--img:url('${esc(info.icon)}')"` : ''}></span>
 						<span class="pn">${esc(pl.name)}<small>${esc(KB.roleLabel(pl.role) || pl.riotId)}</small></span>
-						<select data-key="${esc(pl.key)}">${opts}</select></div>`;
+						<select data-key="${esc(pl.key)}" aria-label="Agent de ${esc(pl.name)}">${opts}</select></div>`;
 				}).join('')}</div>`;
 			};
 			$('#pkGrid').innerHTML = col('A') + col('B');
 		}
 		$('#pkMap').onchange = (e) => { pkSel = +e.target.value; renderPicks(); };
 		$('#pkGrid').addEventListener('change', (e) => {
-			const k = e.target.dataset.key; const i = pkIndex(); if (!k || i < 0) return;
-			const x = match().maps[i];
+			const k = e.target.dataset.key; const i = pkShown ?? -1; if (!k || i < 0) return;
+			const x = match().maps[i]; if (!x) return;
 			const picks = { ...(x.picks || {}) };
 			if (e.target.value) picks[k] = e.target.value; else delete picks[k];
 			x.picks = picks;
 		});
 		$('#pkCopy').onclick = () => {
-			const i = pkIndex(); if (i <= 0) return;
+			const i = pkShown ?? -1; if (i <= 0 || !match().maps[i]) return;
 			const maps = match().maps;
 			const src = maps[i - 1].picks || {};
-			if (!Object.keys(src).length) return msg('pkMsg', 'Aucun agent renseigné sur la map précédente.', 'err');
+			if (!Object.keys(src).length) return flash('pkMsg', 'Aucun agent renseigné sur la map précédente.', 'err');
 			maps[i].picks = { ...src };
-			msg('pkMsg', `Agents copiés depuis ${maps[i - 1].map || 'la map ' + i}.`, 'ok');
+			flash('pkMsg', `Agents copiés depuis ${maps[i - 1].map || 'la map ' + i}.`);
 		};
-		function bindPkClear() {
-			$('#pkClear').onclick = () => {
-				const wrap = $('#pkClearWrap'), orig = wrap.innerHTML;
-				wrap.innerHTML = '<span class="confirm">Effacer les agents de cette map ? <button class="danger" data-y>Oui</button><button data-n>Non</button></span>';
-				const restore = () => { clearTimeout(t); wrap.innerHTML = orig; bindPkClear(); };
-				const t = setTimeout(restore, 6000);
-				wrap.querySelector('[data-y]').onclick = () => { const i = pkIndex(); if (i >= 0) match().maps[i].picks = {}; restore(); msg('pkMsg', 'Agents effacés.', 'ok'); };
-				wrap.querySelector('[data-n]').onclick = restore;
-			};
-		}
-		bindPkClear();
-		let pendingPicks = false;
-		function safeRenderPicks() {
-			const a = document.activeElement;
-			if (a && $('#secPicks').contains(a) && a.tagName === 'SELECT') { pendingPicks = true; return; }
-			pendingPicks = false; renderPicks();
-		}
-		$('#secPicks').addEventListener('focusout', () => setTimeout(() => { if (pendingPicks) safeRenderPicks(); }, 0));
+		KBD.confirm('#pkClear', () => { const x = match().maps[pkShown ?? -1]; if (x) x.picks = {}; flash('pkMsg', 'Agents effacés.'); }, { label: 'Effacer les agents de cette map ?' });
 
 		/* ---------------- Rendu ---------------- */
-		// Ne pas écraser un champ en cours de saisie : on diffère le rendu du bloc match jusqu'à la sortie du champ.
-		let pendingMatch = false;
-		function safeRenderMatch() {
-			const a = document.activeElement;
-			if (a && $('#secMatch').contains(a) && /INPUT|SELECT/.test(a.tagName)) { pendingMatch = true; return; }
-			pendingMatch = false; renderMatch();
-		}
-		$('#secMatch').addEventListener('focusout', () => setTimeout(() => { if (pendingMatch) safeRenderMatch(); }, 0));
+		// Ne pas écraser un champ en cours de saisie : le rendu est différé jusqu'à la sortie du champ
+		const safeRenderMatch = KBD.deferWhileEditing('#secMatch', renderMatch);
+		const safeRenderPicks = KBD.deferWhileEditing('#secPicks', renderPicks);
 
-		KB.watch(['match', 'teams', 'veto', 'valorantData', 'playerProfiles', 'playerData', logos, gfx], () => {
+		KB.watch(['match', 'teams', 'veto', 'valorantData', 'playerProfiles', 'playerData'], () => {
 			safeRenderPicks();
-			renderGfx();
 			safeRenderMatch();
 			renderTeamSum();
 		});
-		bindStatic();
 	</script>
 </body>
 </html>

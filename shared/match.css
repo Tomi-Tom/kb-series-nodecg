@@ -1,5 +1,5 @@
 /* Partie "match" : boucles d'ambiance communes (versus, veto, veto-recap).
-   Uniquement transform / opacity / background-position : pas de reflow. */
+   Uniquement transform / opacity : pas de reflow. */
 
 /* Balayage de lumière sur un filet doré (.kb-rule) */
 .m-sweep { position: relative; overflow: hidden; }
@@ -34,7 +34,3 @@
 /* Donnée qui change */
 .m-bump { animation: m-bump .6s var(--kb-ease-out); }
 @keyframes m-bump { 0% { transform: scale(1.25); opacity: .2; } 100% { transform: none; opacity: 1; } }
-
-/* Révélation par masque (entrée) */
-.kb-in .m-reveal { animation: m-reveal .9s var(--kb-ease-inout) both; animation-delay: calc(var(--d, .2s) + var(--i, 0) * 90ms); }
-@keyframes m-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
