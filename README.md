@@ -1,59 +1,84 @@
-# KB SERIES × Valorant — NodeCG
+# KB SERIES × Valorant — régie et overlays
 
-Lancer : double-clic sur `start.bat` (ou `npm start`), puis ouvrir http://localhost:9090
-Mode dev (redémarre tout seul quand `extension/` change) : `npm run dev`
+Habillage du tournoi Valorant **KB SERIES** pour OBS : 18 overlays 1920×1080, réunis dans une seule page pour OBS, et une régie web pour tout piloter en direct.
+Le projet tourne sur ton PC avec [NodeCG](https://www.nodecg.dev/) ; aucune connaissance technique n'est nécessaire pour l'utiliser.
 
-## Mise en ligne
-Voir **docs/DEPLOIEMENT.md** (Railway ou VPS, nom de domaine, mot de passe, transfert des données, clé OBS).
+## Démarrage rapide
+Prérequis : Windows, [Node.js 24 LTS](https://nodejs.org), Google Chrome.
 
-## Dossiers
-- `dashboard/` : panneaux de régie · `graphics/` : overlays 1920×1080 (sources navigateur OBS)
-- `extension/` : logique serveur (une partie par fichier) · `shared/` : thème (`theme.css`), helpers (`kb.js`), logos
-- `Medias/` : références (affiche, logo) · `docs/BRIEF.md` : charte et conventions · `shots/` : captures de contrôle
-- `tools/shot.js` : capture d'une page en Chrome headless
+1. Double-clique sur **`start.bat`**. Au premier lancement, il installe tout (1 à 3 minutes, Internet nécessaire).
+2. La régie s'ouvre toute seule dans ton navigateur : **http://localhost:9090**
+3. Pour arrêter : ferme la fenêtre noire.
 
-## ★ Une seule source OBS
-`http://localhost:9090/bundles/valorant-tournament/graphics/stream.html` (1920×1080) contient toutes les couches.
-On choisit la scène de fond et on affiche/masque chaque overlay depuis le panneau **Régie** (onglet principal).
+Détails, mise à jour, accès depuis un autre PC : [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
-## Overlays individuelles — URL : `http://localhost:9090/bundles/valorant-tournament/graphics/<fichier>`
+## OBS en 30 secondes
+Une seule source **Navigateur** : `http://localhost:9090/bundles/valorant-tournament/graphics/stream.html`
+- largeur **1920**, hauteur **1080** ;
+- ne coche **pas** l'arrêt de la source quand elle n'est pas visible, ni l'actualisation quand la scène devient active ;
+- fréquence d'images : celle de ton stream.
+
+Scènes d'attente, overlays et transition se pilotent ensuite depuis la **Régie**. Guide complet : [docs/OBS.md](docs/OBS.md).
+
+## Les panneaux
+| Panneau (titre exact) | Onglet | À quoi il sert |
+|---|---|---|
+| **Régie · tout afficher / masquer** | Main Workspace | Le direct : transition, scène de fond, AFFICHER / masquer chaque overlay, lower thirds rapides |
+| **Live · score de série, lower thirds, ticker, 50/50** | Main Workspace | Score de la série, lower thirds et presets, ticker, écran 50/50, casters |
+| **Maps & Transitions** | Main Workspace | Transition : aperçu, réglages, export PNG ; intro, série et résultat de map |
+| **Équipes & Joueurs** | 1. Match & Joueurs | Équipes, joueurs, fiches, import tracker.gg |
+| **Match (maps, scores, agents)** | 1. Match & Joueurs | Équipes du match, format, maps, scores, agents joués |
+| **Veto des maps** | 1. Match & Joueurs | Veto en direct : bans, picks, côtés |
+| **Stats Joueur · fiche et duel** | 1. Match & Joueurs | Fiche stats d'un joueur, duel entre deux joueurs |
+| **Écrans (attente, pause, fin, planning)** | 2. Écrans & Tournoi | Compte à rebours, textes des écrans, planning, infos du tournoi |
+| **Bracket & Groupes** | 2. Écrans & Tournoi | Classement des groupes et phase finale |
+| **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation |
+
+Visite guidée, bouton par bouton : [docs/REGIE.md](docs/REGIE.md).
+
+## Les overlays
+Avec `stream.html`, tu n'as besoin d'aucune autre URL. Chaque overlay reste disponible seul : `http://localhost:9090/bundles/valorant-tournament/graphics/<fichier>`.
+
 | Fichier | Usage | Panneau |
 |---|---|---|
-| `starting.html` | Le stream commence bientôt + compte à rebours | Écrans |
-| `brb.html` | Pause | Écrans |
-| `ending.html` | Fin de stream, résultats du jour | Écrans |
-| `schedule.html` | Planning plein écran | Écrans |
-| `versus.html` | Présentation du match + rosters | Match & Équipes |
-| `veto.html` | Veto des maps | Veto |
-| `veto-recap.html` | Récap : ordre des maps, picks, côtés | Veto / Match |
-| `transition.html` | Stinger (au-dessus de tout, point de coupe ≈ 800 ms) | Maps & Transitions |
-| `map-intro.html` | Intro de map + stats de map par équipe | Maps & Transitions |
-| `map-series.html` | Maps de la série | Maps & Transitions |
-| `map-result.html` | Résultat de map + MVP | Maps & Transitions |
-| `lower-third.html` | 2 lower thirds (gauche + droite, transparent) | Live |
-| `ticker.html` | Bandeau défilant bas (transparent) | Live |
-| `dual-cam.html` | Écran 50/50 (trous caméra : 40,40 et 980,40 en 900×860) | Live |
-| `player-stats.html` | Stats d'un joueur (tracker.gg) | Stats Joueur |
-| `player-duel.html` | Duel joueur vs joueur | Stats Joueur |
-| `groups.html` | Classement des groupes | Bracket & Groupes |
-| `bracket.html` | Arbre de la phase finale | Bracket & Groupes |
+| `stream.html` | **Toutes les couches en une source** | Régie |
+| `starting.html` | Le stream commence bientôt + compte à rebours | Écrans ; Régie (scène **Bientôt**) |
+| `brb.html` | Pause | Écrans ; Régie (scène **Pause**) |
+| `ending.html` | Fin de stream, résultats du jour | Écrans ; Régie (scène **Fin**) |
+| `schedule.html` | Planning plein écran | Écrans ; Régie (scène **Planning**) |
+| `dual-cam.html` | Écran 50/50, deux trous caméra | Live ; Régie (scène **50/50 caméras**) |
+| `transition.html` | Transition (stinger), au-dessus de tout | Régie, Maps & Transitions |
+| `lower-third.html` | 2 lower thirds, gauche et droite (transparent) | Live, Régie |
+| `ticker.html` | Bandeau défilant en bas (transparent) | Live, Régie |
+| `versus.html` | Présentation du match + rosters | Match, Veto des maps, Régie |
+| `veto.html` | Veto des maps en direct | Veto des maps, Match, Régie |
+| `veto-recap.html` | Récap : ordre des maps, picks, côtés | Veto des maps, Match, Régie |
+| `map-intro.html` | Intro de map + rosters des deux équipes | Maps & Transitions, Régie |
+| `map-series.html` | Maps de la série | Maps & Transitions, Régie |
+| `map-result.html` | Résultat de map + MVP | Maps & Transitions, Régie |
+| `player-stats.html` | Stats d'un joueur | Stats Joueur, Régie |
+| `player-duel.html` | Duel joueur contre joueur | Stats Joueur, Régie |
+| `groups.html` | Classement des groupes | Bracket & Groupes, Régie |
+| `bracket.html` | Arbre de la phase finale | Bracket & Groupes, Régie |
 
-## Joueurs
-Panneau **Joueurs** (onglet « 1. Match & Joueurs ») : fiche complète par joueur, tout est modifiable à la main (prime sur tracker.gg).
-Agents joués par map : panneau **Match & Équipes**.
+## Mes données
+Tout s'enregistre tout seul sur ton PC (dossiers `db/` et `assets/`), et une sauvegarde est faite avant chaque opération qui efface.
+Pour garder une copie ou changer de PC : panneau **Données** → **⬇ Exporter mes données**. Détails : [docs/DONNEES.md](docs/DONNEES.md).
 
-### Import automatique (extension Chrome)
-`chrome://extensions` → mode développeur → « Charger l'extension non empaquetée » → `tools/tracker-extension`. Détails : `tools/tracker-extension/README.md`.
+## Un problème ?
+[docs/DEPANNAGE.md](docs/DEPANNAGE.md) : symptôme → cause → solution.
 
-## Stinger en PNG
-Panneau Maps & Transitions → « Exporter », ou `node tools/export-stinger.js [--map Ascent]` → `exports/` (60 i/s, transparent, point de coupe image 49).
+## Aller plus loin
+- [docs/JOUR-DE-MATCH.md](docs/JOUR-DE-MATCH.md) : checklist imprimable, de la veille au soir.
+- [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) : mettre la régie en ligne (Railway, serveur perso).
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : fonctionnement du code (développeurs, agents IA).
+- [tools/tracker-extension/README.md](tools/tracker-extension/README.md) : extension Chrome d'import tracker.gg.
 
-## Stats joueurs (tracker.gg, sans extension)
-tracker.gg bloque les requêtes du serveur (403) : l'import se fait depuis ton navigateur.
-1. Une fois : glisser le bouton « ⇪ Envoyer à NodeCG » (panneau Stats Joueur) dans la barre de favoris.
-2. Ouvrir le profil tracker.gg du joueur (« Récupérer les stats » l'ouvre pour toi).
-3. Cliquer le favori sur la page tracker.gg → le joueur arrive dans NodeCG.
-Plan B : copier-coller le JSON de l'API dans le panneau.
+Commandes, dans un terminal ouvert dans le dossier du projet : `npm start` (ce que fait `start.bat`), `npm run dev` (redémarre seul quand `extension/` change),
+`npm run lint`, `npm run check` (ouvre toutes les pages et signale les erreurs ; serveur lancé), `npm run verify` (les deux),
+`npm run shot -- <url> <sortie.png>`, `npm run export:stinger` (serveur lancé).
 
-## Logos d'équipes
-Onglet **Assets** de NodeCG → catégorie « Logos équipes », puis choisir le logo dans le panneau Match & Équipes.
+## Dossiers
+| Dans git (le code) | Reste sur ton PC (jamais envoyé sur GitHub) |
+|---|---|
+| `dashboard/` panneaux · `graphics/` overlays · `extension/` serveur · `shared/` code commun, thème, polices · `tools/` outils · `cfg/` configuration · `docs/` | `db/` tes données · `assets/` logos et photos · `exports/` transitions en PNG · `shots/` captures · `Medias/` affiche et logo de référence · `logs/` · `node_modules/` |

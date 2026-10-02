@@ -1,67 +1,80 @@
 # Extension Chrome « KB SERIES · Import tracker.gg → NodeCG »
 
-Importe les stats tracker.gg d'un joueur **en un clic depuis la régie** (panneau **Joueurs**), à partir d'un pseudo `Pseudo#TAG` ou d'un lien tracker.gg. Plus besoin du favori.
+Guide d'installation et d'utilisation de l'extension qui importe les stats tracker.gg d'un joueur **en un clic depuis la régie** (panneau **Équipes & Joueurs**), à partir d'un `Pseudo#TAG` ou d'un lien tracker.gg.
 
 ## Pourquoi une extension ?
 
-tracker.gg (protégé par Cloudflare) refuse les requêtes venant du serveur NodeCG (erreur 403). Il les accepte en revanche depuis **ton** navigateur. L'extension :
+tracker.gg (protégé par Cloudflare) refuse les requêtes venant du serveur de la régie (erreur 403). Il les accepte en revanche depuis **ton** navigateur. L'extension :
 
 1. ouvre le profil tracker.gg du joueur dans un **onglet en arrière-plan** ;
-2. récupère les stats (le même JSON que le favori « ⇪ Envoyer à NodeCG ») ;
-3. les envoie à NodeCG ;
-4. referme l'onglet. Le joueur apparaît dans la régie.
+2. récupère les stats (le même contenu que le favori « ⇪ Envoyer à NodeCG ») ;
+3. les transmet à la page de la régie, qui les enregistre ;
+4. referme l'onglet. La carte du joueur passe en **TRK**.
 
-Plusieurs joueurs (bouton « Importer toute l'équipe ») passent dans une file d'attente, un onglet à la fois.
+Si plusieurs imports sont lancés à la suite, ils passent dans une file d'attente : un seul onglet tracker.gg à la fois.
 
 ## Installation (une seule fois, environ 1 minute)
 
-1. Ouvre Google Chrome (ou Edge, Brave… tout navigateur basé sur Chromium).
+1. Ouvre Google Chrome (ou un autre navigateur basé sur Chromium : Edge, Brave…).
 2. Va à l'adresse `chrome://extensions` (sur Edge : `edge://extensions`).
 3. En haut à droite, active le **Mode développeur**.
 4. Clique sur **Charger l'extension non empaquetée**.
-5. Sélectionne le dossier `tools/tracker-extension` du projet (le chemin exact est affiché en haut de cette page).
+5. Sélectionne le dossier `tools/tracker-extension` du projet (quand ce guide est ouvert depuis la régie, le chemin exact est affiché en haut de la page).
 6. L'extension « KB SERIES · Import tracker.gg → NodeCG » apparaît dans la liste : vérifie qu'elle est **activée**.
-7. Optionnel : clique sur l'icône puzzle de la barre d'outils puis sur l'épingle pour garder l'icône KB visible.
-8. **Recharge la page de la régie NodeCG** (F5) : l'extension ne s'injecte que dans les pages ouvertes après son installation.
+7. Facultatif : icône puzzle de la barre d'outils → épingle, pour garder l'icône de l'extension visible.
+8. **Recharge la page de la régie** (F5) : l'extension ne s'installe que dans les pages ouvertes après elle.
 
-Dans le panneau **Joueurs** (onglet « 1. Match & Joueurs »), l'encart sous « Ajouter un joueur » doit maintenant afficher un point vert **Extension détectée** (bouton ⟳ pour re-tester).
+En haut du panneau **Équipes & Joueurs** (onglet « 1. Match & Joueurs »), la pastille doit être verte : **Extension tracker.gg détectée** (bouton ⟳ pour re-tester).
 
 > Utilise le même navigateur pour la régie et pour tracker.gg : c'est lui qui fait la requête.
 
-## Tester
+## Utilisation
 
-1. Dans le panneau **Joueurs**, sélectionne un joueur (ex. `Elysira#7w7`) puis clique sur **Importer depuis tracker.gg**, ou ajoute un joueur avec son pseudo / lien.
-2. Un onglet tracker.gg s'ouvre en arrière-plan (sans prendre le focus) puis se referme au bout de quelques secondes.
-3. Le message « ✔ … importé depuis tracker.gg » s'affiche dans le panneau, la pastille **TRK** passe au vert et la date d'import se met à jour.
-4. L'icône de l'extension affiche l'état de la file et les derniers imports (réussis ou non, avec la raison).
+1. Dans le panneau **Équipes & Joueurs**, tape `Pseudo#TAG` (ou colle le lien tracker.gg du joueur) dans le champ **+ Pseudo#TAG ou lien tracker.gg** en bas d'une colonne, puis Entrée ; ou ouvre la fiche d'un joueur et clique **Importer depuis tracker.gg** (ou **Actualiser depuis tracker.gg**).
+2. Un onglet tracker.gg s'ouvre en arrière-plan (sans prendre le focus), puis se referme au bout de quelques secondes.
+3. Le panneau affiche « ✔ Pseudo#TAG importé depuis tracker.gg » et la pastille **TRK** de la carte s'allume.
+4. L'icône de l'extension ouvre une petite fenêtre : régie joignable ou non, import en cours, derniers imports (réussis ou non, avec la raison), bouton **Ouvrir la régie**.
 
 ## Cas particuliers
 
-- **Vérification anti-robot (Cloudflare)** : si tracker.gg affiche « Just a moment… » ou une case à cocher, l'onglet passe au premier plan. Valide la vérification : l'import reprend tout seul (jusqu'à 3 minutes). Sinon l'onglet reste ouvert, relance l'import une fois la vérification passée.
+- **Vérification anti-robot (Cloudflare)** : si tracker.gg affiche « Just a moment… » ou une case à cocher, l'onglet passe au premier plan. Valide la vérification : l'import reprend tout seul (jusqu'à 3 minutes). Sinon, relance l'import une fois la vérification passée.
 - **Profil privé** : le joueur doit se connecter une fois sur tracker.gg avec son compte Riot pour rendre ses stats publiques.
-- **Profil introuvable** : vérifie l'orthographe exacte du Riot ID (`Pseudo#TAG`, espaces compris).
-- **Aucune stat de saison** : le joueur n'a pas (encore) joué de partie classée cette saison ; saisis ses stats à la main dans la fiche.
-- **« Extension rechargée »** : après une mise à jour ou un rechargement de l'extension, recharge la page de la régie (F5).
+- **Profil introuvable** : vérifie l'orthographe exacte du Riot ID (`Pseudo#TAG`, majuscules et espaces compris).
+- **Aucune stat de saison** : le joueur n'a pas (encore) joué de partie classée cette saison ; saisis ses stats à la main dans sa fiche.
+- **Régie protégée par un mot de passe** (réseau local ou en ligne) : connecte-toi à la régie dans ce même navigateur avant d'importer.
+- **« Extension non détectée »** après une mise à jour ou un rechargement de l'extension : recharge la page de la régie (F5).
 
-## Régie sur un autre PC / autre port
+## Ce que l'extension peut voir
 
-- L'extension fonctionne avec une régie ouverte sur **n'importe quelle adresse au port 9090** (`http://localhost:9090`, `http://127.0.0.1:9090`, `http://192.168.x.x:9090`…). Elle n'a accès qu'aux pages sur le port 9090 et à tracker.gg.
-- Si NodeCG tourne sur un autre port, remplace `9090` par ce port dans `manifest.json` (sections `host_permissions` et `content_scripts`), puis clique sur le bouton ⟳ de l'extension dans `chrome://extensions`.
+D'après son `manifest.json` (Manifest V3) :
+
+- **Permissions** : `scripting` (lire les stats dans l'onglet tracker.gg qu'elle a ouvert) et `storage` (son état et ses derniers imports).
+- **Sites auxquels elle a accès** : `tracker.gg`, `api.tracker.gg`, et **toute adresse sur le port 9090** (en `http` et en `https`, quel que soit le nom de la machine).
+- **Pages où elle s'installe** (petit relais entre la page et l'extension, aussi dans les cadres) : toute page sur le port 9090, et toute page dont l'adresse contient `/bundles/valorant-tournament/`, **sur n'importe quel site et n'importe quel port** (c'est ce qui la fait marcher sur une régie en ligne).
+- Elle ouvre et ferme elle-même les onglets tracker.gg. Elle n'envoie les stats qu'à la page de la régie qui a demandé l'import.
+
+## Régie sur un autre port
+
+Les panneaux de la régie sont des pages `/bundles/valorant-tournament/…` : l'extension s'y installe quel que soit le port, ce qui devrait suffire à la détection et à l'import. Si elle n'est pas détectée sur un autre port que 9090, remplace `9090` par ce port dans `manifest.json` (sections `host_permissions` et `content_scripts`), puis recharge l'extension (voir ci-dessous).
 
 ## Mettre à jour
 
-Après une modification des fichiers de l'extension : `chrome://extensions` → bouton ⟳ (Actualiser) sur la carte de l'extension, puis F5 sur la régie.
+Après une mise à jour du projet (ou une modification des fichiers de l'extension) : `chrome://extensions` → bouton d'actualisation sur la carte de l'extension, puis F5 sur la régie.
 
 ## Secours sans extension
 
-- **Favori « ⇪ Envoyer à NodeCG »** (panneau Joueurs, section « Favori de secours ») : ouvre la page tracker.gg du joueur puis clique sur le favori.
-- **Copier-coller du JSON** (même section) : ouvre le lien API du joueur, Ctrl+A, Ctrl+C, colle dans le panneau.
+Dans le panneau **Équipes & Joueurs**, carte **Import tracker.gg** :
+
+- **Favori « ⇪ Envoyer à NodeCG »** (section « Favori de secours ») : à glisser une fois dans la barre de favoris ; ensuite, ouvre la page tracker.gg du joueur et clique sur le favori.
+- **Plan C : copier-coller le JSON** : ouvre la fiche du joueur, ouvre son lien API, Ctrl+A, Ctrl+C, colle dans la zone, **Importer le JSON**.
 - Toutes les données d'une fiche (rang, stats, agents…) peuvent aussi être **saisies à la main**.
+
+Pas à pas détaillé : `docs/REGIE.md` du projet, section « Importer les joueurs depuis tracker.gg ».
 
 ## Fichiers
 
-- `manifest.json` : déclaration (Manifest V3), permissions `scripting` + `storage`, accès à tracker.gg et au port 9090.
+- `manifest.json` : déclaration de l'extension (permissions, sites, pages).
 - `content.js` : injecté dans la régie, relaie les demandes du panneau (`window.postMessage`) vers l'extension.
-- `background.js` : file d'attente, ouverture de l'onglet tracker.gg, récupération du JSON, envoi à NodeCG (`POST /valorant-tournament/tracker-import`).
+- `background.js` : file d'attente, ouverture de l'onglet tracker.gg, récupération du JSON, renvoi à la page de la régie qui l'envoie à `POST /valorant-tournament/tracker-import`.
 - `popup.html` / `popup.js` : petite fenêtre d'état.
 - `make-icons.js` : régénère les icônes (`node tools/tracker-extension/make-icons.js`).
