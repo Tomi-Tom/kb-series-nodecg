@@ -63,7 +63,8 @@ function normalize(raw, playlist = 'competitive') {
 				name: s.metadata.name,
 				role: s.metadata.role,
 				color: s.metadata.color,
-				icon: img(s.metadata.imageUrl),
+				// Icône de valorant-api.com (le miroir de tracker.gg n'a pas tous les agents) ; celle de tracker.gg si la clé n'est pas un uuid
+				icon: uuidFrom(id) ? `${VAPI}/agents/${uuidFrom(id)}/displayicon.png` : img(s.metadata.imageUrl),
 				portrait: `${VAPI}/agents/${encodeURIComponent(id)}/fullportrait.png`,
 				bust: `${VAPI}/agents/${encodeURIComponent(id)}/bustportrait.png`,
 				matches: dv(s.stats.matchesPlayed),
@@ -100,7 +101,7 @@ function normalize(raw, playlist = 'competitive') {
 				hs: dv(s.stats.headshotsPercentage),
 				topAgent: top ? {
 					name: top.metadata.name,
-					icon: img(top.metadata.imageUrl),
+					icon: uuidFrom(top.metadata.imageUrl) ? `${VAPI}/agents/${uuidFrom(top.metadata.imageUrl)}/displayicon.png` : img(top.metadata.imageUrl),
 					color: top.metadata.color,
 					matches: dv(top.stats.matchesPlayed),
 					winPct: dv(top.stats.matchesWinPct),

@@ -172,7 +172,12 @@
 				return { ...(tr || {}), ...info, name, color: (tr && tr.color) || info.color, manual: true };
 			});
 		} else {
-			agents = ((prof && prof.agents) || []).map((a) => ({ ...(KB.agentInfo(a.name) || {}), ...a }));
+			// Images : celles de valorant-api.com d'abord. Le miroir de tracker.gg (titles.trackercdn.com) n'a pas tous les agents
+			// (Omen, Jett, Sova… en 404), et un profil importé garde l'adresse enregistrée à l'import.
+			agents = ((prof && prof.agents) || []).map((a) => {
+				const info = KB.agentInfo(a.name) || {};
+				return { ...info, ...a, icon: info.icon || a.icon, portrait: info.portrait || a.portrait, bust: info.bust || a.bust };
+			});
 		}
 
 		return {
