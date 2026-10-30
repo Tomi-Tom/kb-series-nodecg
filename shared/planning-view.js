@@ -11,6 +11,10 @@
 	const S = window.KBScenes;
 	const FORMAT = { bo1: 'BO1', bo3: 'BO3', bo5: 'BO5' };
 
+	// Chaînes de diffusion, au pied du planning
+	const CHANNELS = ['twitch.tv/cycom', 'twitch.tv/epitechparis'];
+	const TWITCH = '<svg class="tw" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>';
+
 	const PAGE = `
 		<div id="pl-root">
 			<div class="kb-bg fade"><div class="kb-bg__art"></div><div class="kb-bg__grid"></div><div class="kb-bg__stars"></div></div>
@@ -30,19 +34,23 @@
 			<div id="pl-board"></div>
 			<div id="pl-empty" class="fade" style="--d:.6s;display:none">Planning à venir</div>
 			<div id="pl-foot" class="fade" style="--d:1.6s">
-				<div class="legend"><span><em class="badge stream"><i></i>Sur le stream</em></span><span><em class="badge off"><i></i>Hors stream</em></span></div>
+				<div class="legend"><span><em class="badge stream"><i></i>Sur le stream</em></span></div>
+				<div class="channels">${CHANNELS.map((c) => `<span class="ch">${TWITCH}<b>${esc(c)}</b></span>`).join('')}</div>
 				<div class="partners"><span>Présenté par</span><img src="../shared/img/cycom-alpha.png" alt=""><span class="sep"></span><img src="../shared/img/epitech-alpha.png" alt=""></div>
 			</div>
 		</div>`;
 
 	const teamName = (id) => { const t = KB.team(id); return t ? t.name : ''; };
+	// Équipes en nom complet ('name') ou logo + tag ('tag') : planning.teamLabel, lu à chaque rendu
+	let teamLabel = 'name';
 
-	/** Pastille de la carte : en direct sur le stream, diffusé, hors stream, terminé */
+	/** Pastille de la carte : en direct sur le stream, diffusé, en cours, terminé. Un match hors stream à venir n'en a pas
+	 *  (la place revient au libellé, ex. « Phase de poules · Groupe A ») : sa barre de gauche grise le distingue déjà */
 	function badge(v) {
 		if (v.status === 'live' && v.streamed) return '<span class="badge onair"><i></i>En direct</span>';
 		if (v.status === 'done') return '<span class="badge done">Terminé</span>';
-		if (v.status === 'live') return '<span class="badge off"><i></i>En cours · hors stream</span>';
-		return v.streamed ? '<span class="badge stream"><i></i>Sur le stream</span>' : '<span class="badge off"><i></i>Hors stream</span>';
+		if (v.status === 'live') return '<span class="badge off"><i></i>En cours</span>';
+		return v.streamed ? '<span class="badge stream"><i></i>Sur le stream</span>' : '';
 	}
 
 	// Pause : tasse + nom + durée, sur toute la largeur du créneau
@@ -57,8 +65,12 @@
 			const id = key === 'A' ? v.teamA : v.teamB;
 			const t = KB.team(id);
 			const lose = v.winner && v.winner !== key, win = v.winner === key;
-			// data-full / data-tag : nom complet, et tag de repli si le nom ne tient pas (fitCard)
-			const nm = t ? `<span class="nm" data-full="${esc(t.name)}" data-tag="${esc(t.tag || '')}">${esc(t.name)}</span>` : `<span class="nm tbd">${esc(id ? String(id).toUpperCase() : KBPlan.placeholder(v, key))}</span>`;
+			// data-full / data-tag : nom complet, et tag de repli si le nom ne tient pas (fitCard).
+			// Option « logo + tag » (planning.teamLabel) : le tag seul, même taille sur toutes les cartes ; le nom si l'équipe n'a pas de tag
+			const tagOnly = teamLabel === 'tag' && t && t.tag;
+			const nm = !t ? `<span class="nm tbd">${esc(id ? String(id).toUpperCase() : KBPlan.placeholder(v, key))}</span>`
+				: tagOnly ? `<span class="nm tag" data-full="${esc(t.tag)}">${esc(t.tag)}</span>`
+					: `<span class="nm" data-full="${esc(t.name)}" data-tag="${esc(t.tag || '')}">${esc(t.name)}</span>`;
 			return `<div class="tm ${key === 'A' ? 'a' : 'b'}${lose ? ' lose' : ''}${win ? ' win' : ''}"><span class="lg">${t ? KB.teamLogo(t, logo) : ''}</span>${nm}</div>`;
 		};
 		const played = v.status !== 'upcoming' && v.scoreA !== null && v.scoreB !== null;
@@ -89,10 +101,14 @@
 		// Les deux équipes d'une carte à la même taille (la plus petite des deux)
 		const teams = names.filter((n) => n.classList.contains('nm') && !n.classList.contains('tbd'));
 		if (teams.length === 2) { const s = Math.min(...teams.map((n) => parseFloat(getComputedStyle(n).fontSize))); teams.forEach((n) => { n.style.fontSize = s + 'px'; }); }
+		// Option « logo + tag » : tous les tags du planning à la même taille (la plus petite dont une carte a besoin)
+		for (const n of KB.$$('.nm.tag', el)) n.dataset.fit = parseFloat(getComputedStyle(n).fontSize);
+		const tags = KB.$$('#pl-board .nm.tag');
+		if (tags.length) { const s = Math.min(...tags.map((n) => +n.dataset.fit || Infinity)); tags.forEach((n) => { n.style.fontSize = s + 'px'; }); }
 	}
 	const cardClass = (v) => (KBPlan.isBreak(v) ? 'card brk upcoming' : `card ${v.status} ${v.streamed ? 'streamed' : 'offstream'}`);
 	const sigOf = (v) => JSON.stringify([v.title, v.minutes, v.time, v.end, v.format, v.teamA, v.teamB, teamName(v.teamA), teamName(v.teamB), v.scoreA, v.scoreB, v.status, v.winner, v.streamed,
-		(KB.team(v.teamA) || {}).logo, (KB.team(v.teamB) || {}).logo]);
+		(KB.team(v.teamA) || {}).logo, (KB.team(v.teamB) || {}).logo, (KB.team(v.teamA) || {}).tag, (KB.team(v.teamB) || {}).tag, teamLabel]);
 
 	V.mount = ({ mode = 'overlay' } = {}) => {
 		document.body.insertAdjacentHTML('afterbegin', PAGE);
@@ -142,6 +158,7 @@
 			KB.$('#pl-date').textContent = t.dates || '';
 			KB.$('#pl-place').textContent = t.location || '';
 			const bk = bracketRep.value || KBB.defaultBracket();
+			teamLabel = KBPlan.normalize(planRep.value).teamLabel;
 			const slots = KBPlan.slots(planRep.value, bk);
 			const key = JSON.stringify([L.sh, slots.map((s) => [s.slot, s.matches.map((v) => v.id)])]);
 			if (key !== layoutKey) { layoutKey = key; build(slots, settled); KB.$$('.card', board).forEach((c) => resized.observe(c)); }

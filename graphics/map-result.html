@@ -9,6 +9,8 @@
 	<link rel="stylesheet" href="../shared/theme.css">
 	<link rel="stylesheet" href="../shared/maps.css">
 	<style>
+		/* Fond plein : la photo de la map est atténuée (.55), rien ne doit laisser voir la caméra placée derrière (vMix) */
+		#scene { background: var(--kb-night-0); }
 		#splash { position: absolute; inset: -20px; background: var(--kb-night-1) center / cover no-repeat; filter: saturate(.8) blur(2px); opacity: .55; }
 		#shade { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(10, 15, 46, .35), rgba(4, 6, 26, .85) 70%), linear-gradient(180deg, rgba(4, 6, 26, .4), transparent 30%, rgba(4, 6, 26, .9)); }
 		#tint { position: absolute; inset: 0; background: linear-gradient(115deg, rgba(43, 47, 181, .4), transparent 60%); mix-blend-mode: screen; }

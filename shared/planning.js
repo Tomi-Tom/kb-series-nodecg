@@ -2,7 +2,8 @@
 // Navigateur : <script src="../shared/planning.js"></script> (après bracket.js) → window.KBPlan ; Node : require('../shared/planning.js')
 //
 // Replicant `planning` (source unique, écrit par le panneau Planning et par extension/planning.js) :
-//   { start: 'HH:MM', duration: minutes (60), current: id | null, matches: [row] }
+//   { start: 'HH:MM', duration: minutes (60), current: id | null, teamLabel: 'name' | 'tag', matches: [row] }
+//   teamLabel : équipes affichées sur le graphique (overlay et scène) — 'name' nom complet, 'tag' logo + tag seulement (KBPlan.TEAM_LABELS)
 //   row = { id, slot, phase, ref, group, teamA, teamB, scoreA, scoreB, status, streamed, format, label, rounds, minutes }
 //     slot     créneau à partir de 0, dans l'ordre de la journée ; plusieurs matchs par créneau = joués en même temps.
 //              Un créneau dure son match (ou sa pause) le plus long : heure = start + durée des créneaux d'avant
@@ -28,7 +29,8 @@
 	P.STATUSES = ['upcoming', 'live', 'done'];
 	P.BREAK_DEFAULT = { label: 'Pause', minutes: 30 };
 	P.isBreak = (row) => !!row && row.phase === 'break';
-	P.DEFAULT = { start: '10:00', duration: 60, current: null, matches: [] };
+	P.TEAM_LABELS = { name: 'Logo + nom complet', tag: 'Logo + tag' };
+	P.DEFAULT = { start: '10:00', duration: 60, current: null, teamLabel: 'name', matches: [] };
 	P.GRAPHIC_DEFAULT = { visible: false };
 
 	const num = (x) => (Number.isFinite(+x) ? +x : 0);
@@ -45,6 +47,7 @@
 			start: isTime(v.start) ? v.start.padStart(5, '0') : P.DEFAULT.start,
 			duration: Math.min(480, Math.max(10, Math.round(num(v.duration) || P.DEFAULT.duration))),
 			current: ids.has(v.current) ? v.current : null,
+			teamLabel: P.TEAM_LABELS[v.teamLabel] ? v.teamLabel : P.DEFAULT.teamLabel,
 			matches,
 		};
 	};

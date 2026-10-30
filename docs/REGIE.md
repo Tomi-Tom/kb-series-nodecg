@@ -133,7 +133,8 @@ Le veto remplit tout seul la liste des maps du match, au fil des picks et du dec
 ### Planning de la journée
 Un seul planning, affiché par l'overlay plein écran **Planning** (bouton **AFFICHER**, aussi dans la Régie et Companion) et par la scène de fond **Planning** de la Régie.
 - **À l'antenne** : **Planning** avec **AFFICHER** / **● À L'ANTENNE**.
-- **Journée** : **Début du 1er créneau** et **Durée par défaut d'un match** (60 min) : les heures des créneaux se calculent seules. **Sur-titre** et **Titre** de l'écran.
+- **Journée** : **Début du 1er créneau** et **Durée par défaut d'un match** (60 min) : les heures des créneaux se calculent seules. **Sur-titre** et **Titre** de l'écran. **Équipes sur le graphique** : **Logo + nom complet**, ou **Logo + tag** (tag seul, même taille de texte dans toutes les cases ; une équipe sans tag garde son nom), pour l'overlay et la scène Planning.
+  Sur le graphique, un match diffusé porte **Sur le stream** (ou **En direct**) ; un match hors stream n'a pas de pastille (sa barre de gauche est grise), ce qui laisse la place au libellé (ex. « Phase de poules · Groupe A »). Le pied affiche les chaînes **twitch.tv/cycom** et **twitch.tv/epitechparis** (liste `CHANNELS` dans `shared/planning-view.js`).
 - **Match en cours sur le stream** : le match suivi, **Arrêter le suivi**.
 - **Matchs** : **+ Match de poules**, **+ Quarts de finale (4)** (deux par créneau, un seul sur le stream), **+ Demi-finales (2)**, **+ Petite finale**, **+ Grande finale**, **+ Pause** ajoutent des créneaux à la suite ; **Resserrer les créneaux** supprime les trous.
 - **Un bloc par créneau** (heure de début et de fin) : ↑ ↓ l'échangent avec le créneau voisin, **☕ Pause après** insère une pause juste derrière (les créneaux suivants reculent), **+ En parallèle** ajoute un match joué en même temps.

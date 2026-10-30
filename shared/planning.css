@@ -130,6 +130,10 @@
 #pl-foot .legend { display: flex; align-items: center; gap: 22px; }
 #pl-foot .legend span { display: inline-flex; align-items: center; gap: 10px; }
 #pl-foot .legend .badge { letter-spacing: .2em; }
+/* Chaînes Twitch : au centre du pied, en minuscules (adresses) */
+#pl-foot .channels { flex: 1; display: flex; justify-content: center; align-items: center; gap: 34px; }
+#pl-foot .ch { display: inline-flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: .06em; font: 700 19px var(--kb-ui); color: var(--kb-text); }
+#pl-foot .ch .tw { width: 22px; height: 22px; color: #a970ff; filter: drop-shadow(0 0 8px rgba(145, 70, 255, .45)); }
 #pl-foot .partners { margin-left: auto; display: flex; align-items: center; gap: 22px; }
 #pl-foot img { height: 30px; opacity: .9; }
 #pl-foot .sep { width: 6px; height: 6px; background: var(--kb-gold); transform: rotate(45deg); }

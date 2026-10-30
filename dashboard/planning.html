@@ -70,6 +70,7 @@
 			<div><label for="duration">Durée par défaut d'un match (min)</label><input type="number" id="duration" min="10" max="480" step="5"></div>
 			<div><label for="txKicker">Sur-titre</label><input id="txKicker" data-tx="kicker" placeholder="Programme du jour"></div>
 			<div><label for="txTitle">Titre</label><input id="txTitle" data-tx="title" placeholder="Planning"></div>
+			<div><label for="teamLabel">Équipes sur le graphique</label><select id="teamLabel" title="Logo + tag : même taille de texte dans toutes les cases, quelle que soit la longueur des noms"></select></div>
 		</div>
 		<div class="hint" id="summary"></div>
 	</div>
@@ -207,7 +208,7 @@
 			const p = plan();
 			const bk = bracketRep.value || KBB.defaultBracket();
 			const tx = KBScenes.texts().schedule;
-			for (const [id, v] of [['start', p.start], ['duration', p.duration], ['txKicker', tx.kicker], ['txTitle', tx.title]]) if (document.activeElement !== $(id)) $(id).value = v;
+			for (const [id, v] of [['start', p.start], ['duration', p.duration], ['teamLabel', p.teamLabel], ['txKicker', tx.kicker], ['txTitle', tx.title]]) if (document.activeElement !== $(id)) $(id).value = v;
 			const slots = P.slots(p, bk);
 			const last = slots[slots.length - 1];
 			const games = p.matches.filter((r) => !P.isBreak(r)), breaks = p.matches.length - games.length;
@@ -239,6 +240,8 @@
 		// ---------- Réglages de la journée ----------
 		$('start').onchange = () => { if (/^\d{2}:\d{2}$/.test($('start').value)) savePlan({ ...plan(), start: $('start').value }); };
 		$('duration').onchange = () => savePlan({ ...plan(), duration: +$('duration').value || P.DEFAULT.duration });
+		$('teamLabel').innerHTML = Object.entries(P.TEAM_LABELS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+		$('teamLabel').onchange = () => savePlan({ ...plan(), teamLabel: $('teamLabel').value });
 		for (const id of ['txKicker', 'txTitle']) {
 			$(id).onchange = () => {
 				const v = KB.clone(texts.value || {});
