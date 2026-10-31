@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+<meta charset="utf-8">
+<title>KB SERIES · Overlay en jeu</title>
+<!--
+	Bandeau en haut de l'écran, par-dessus le jeu (transparent) : cadre KB SERIES (shared/img/game-overlay-top.png,
+	tiré de Overlay-FS-BO1), noms des deux équipes du match sur les bandes et leurs logos dans les ronds des extrémités.
+	Replicants lus : liveGameOverlay { visible } (défaut : LIVE.defaults.liveGameOverlay, shared/live.js), match, teams.
+	Les côtés suivent match.swap (KB.sides). Piloté par la Régie (ligne « Overlay en jeu », via KBO) et l'API Companion
+	(overlay game-overlay).
+-->
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+	/* Coordonnées en px de l'écran 1920×1080, relevées sur l'image (ronds : centre 348/1574, y 34, rayon ~28) */
+	#hud { position: absolute; left: 0; top: 0; width: 1920px; height: 160px; visibility: hidden; }
+	#hud.kb-in { animation: hudIn .7s var(--kb-ease-out) both; }
+	#hud.kb-out { animation: hudOut .4s var(--kb-ease-inout) both; }
+	@keyframes hudIn { from { transform: translateY(-150px); } to { transform: none; } }
+	@keyframes hudOut { from { transform: none; } to { transform: translateY(-150px); } }
+
+	#frame { position: absolute; left: 0; top: 0; width: 1920px; height: 160px; z-index: 1; }
+
+	/* Logos : sous le cadre, le liseré doré du rond passe par-dessus */
+	.logo { position: absolute; top: 4px; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; z-index: 0;
+		display: grid; place-items: center; background: radial-gradient(circle, rgba(var(--c-rgb, 40, 40, 120), .55), #0a0c2e 75%); }
+	.logo.l { left: 318px; } .logo.r { left: 1544px; }
+	.logo img, .logo .kb-team-mono { width: 52px !important; height: 52px !important; object-fit: contain; }
+	.logo .kb-team-mono { border-radius: 50%; }
+
+	/* Noms : centrés sur les bandes entre le rond et le centre */
+	.name { position: absolute; top: 0; height: 30px; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 12px;
+		font: 400 22px/1 var(--kb-display); letter-spacing: .06em; text-transform: uppercase; color: var(--kb-text); white-space: nowrap;
+		text-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
+	.name.l { left: 430px; width: 440px; } .name.r { left: 1050px; width: 440px; }
+	.name i { flex: 0 0 auto; width: 18px; height: 4px; background: var(--c, var(--kb-gold)); transform: skewX(-30deg); box-shadow: 0 0 8px var(--c, var(--kb-gold)); }
+	.name span { display: inline-block; transform-origin: center; }
+	#hud.kb-in .name span, #hud.kb-in .logo > * { animation: hudPop .5s var(--kb-ease-out) .35s both; }
+	@keyframes hudPop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+	<div id="hud">
+		<div class="logo l" id="logoL"></div>
+		<div class="logo r" id="logoR"></div>
+		<img id="frame" src="../shared/img/game-overlay-top.png" alt="">
+		<div class="name l" id="nameL"></div>
+		<div class="name r" id="nameR"></div>
+	</div>
+
+<script src="../shared/kb.js"></script>
+<script src="../shared/live.js"></script>
+<script>
+	const rep = nodecg.Replicant('liveGameOverlay', { defaultValue: KB.clone(LIVE.defaults.liveGameOverlay) });
+	const hud = KB.$('#hud');
+	const pres = KB.presence(hud, 450);
+	const MAX_W = 440 - 60; // largeur de la bande moins les deux traits
+
+	// Réduit la police si le nom dépasse de la bande
+	function fit(el) {
+		const s = el.querySelector('span');
+		s.style.fontSize = '';
+		let size = 22;
+		while (s.scrollWidth > MAX_W && size > 12) s.style.fontSize = --size + 'px';
+	}
+
+	function render() {
+		const sides = KB.sides();
+		for (const [side, team, key] of [['L', sides.left, sides.leftKey], ['R', sides.right, sides.rightKey]]) {
+			const color = KB.teamColor(team, key);
+			const name = KB.$('#name' + side), logo = KB.$('#logo' + side);
+			KB.setColor(name, 'c', color);
+			KB.setColor(logo, 'c', color);
+			name.innerHTML = `<i></i><span>${KB.esc(team ? team.name : 'À déterminer')}</span><i></i>`;
+			logo.innerHTML = KB.teamLogo(team, 52);
+			fit(name);
+		}
+		if (rep.value && rep.value.visible) { if (!pres.visible) pres.show(); } else pres.hide();
+	}
+	document.fonts.ready.then(() => KB.$$('.name').forEach(fit));
+	KB.watch([rep, 'match', 'teams'], render);
+</script>
+</body>
+</html>

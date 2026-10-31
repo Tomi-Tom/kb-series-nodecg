@@ -36,6 +36,8 @@
 		},
 		// Bug « REPLAY » en haut à droite (graphics/replay-bug.html)
 		liveReplayBug: { visible: false },
+		// Bandeau en jeu en haut : noms et logos des équipes du match (graphics/game-overlay.html)
+		liveGameOverlay: { visible: false },
 		// Écran 50/50 = scène dédiée (pas de "visible") ; info = bandeau match en cours en bas au centre
 		liveDualCam: { left: LIVE.camLabelDefault('A'), right: LIVE.camLabelDefault('B'), info: true, infoText: '' },
 	};

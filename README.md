@@ -56,6 +56,7 @@ Avec `stream.html`, tu n'as besoin d'aucune autre URL. Chaque overlay reste disp
 | `lower-third.html` | 3 lower thirds, gauche, centre et droite (transparent) : host, casters, annonces | Lower thirds, Régie |
 | `ticker.html` | Bandeau défilant en bas (transparent) | Ticker défilant, Régie |
 | `replay-bug.html` | Bug « REPLAY » en haut à droite, pendant un ralenti (transparent) | Régie |
+| `game-overlay.html` | Bandeau en jeu en haut : noms et logos des équipes du match (transparent) | Régie |
 | `versus.html` | Présentation du match + rosters | Match, Veto des maps, Régie |
 | `veto.html` | Veto des maps en direct | Veto des maps, Match, Régie |
 | `veto-recap.html` | Récap : ordre des maps, picks, côtés | Veto des maps, Match, Régie |

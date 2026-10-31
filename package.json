@@ -222,6 +222,11 @@
         "height": 1080
       },
       {
+        "file": "game-overlay.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
         "file": "dual-cam.html",
         "width": 1920,
         "height": 1080

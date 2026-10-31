@@ -74,6 +74,7 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 | `liveDualCam` | Étiquettes et bandeau de l'écran 50/50 | `live.js` | Écran 50/50 | dual-cam | `shared/live.js` |
 | `fullscreenStinger` | `{ enabled }` : afficher / masquer un plein écran passe par le stinger (changement au point de coupe, minuteur côté serveur) | `companion.js` | Régie (case, via `KBO.stinger`), API | — | `shared/overlay-list.js` (`KBOList.STINGER_DEFAULT`) |
 | `liveReplayBug` | `{ visible }` : bug « REPLAY » en haut à droite | `live.js` | Régie (via `KBO`) | replay-bug | `shared/live.js` (`LIVE.defaults`) |
+| `liveGameOverlay` | `{ visible }` : bandeau en jeu (noms et logos des équipes) | `live.js` | Régie (via `KBO`) | game-overlay | `shared/live.js` (`LIVE.defaults`) |
 | `diagPing` | `{ run, id, t }` non persistant : mesure du diagnostic du direct, chaque page graphique répond (`kb.js`) | `diag.js` | — | toutes (réponse `diag:pong`) | `extension/diag.js` |
 | `mapsGraphics` | Visibilité + map / MVP de intro, series, result | `maps.js` | Maps & Transitions, Régie, Équipes & Joueurs (renommage) | map-intro, map-series, map-result | `shared/maps.js` (`KBM.DEFAULT`) |
 | `mapsTransitionSettings` | Réglages du stinger + préréglages perso | `maps.js` | Maps & Transitions | transition | `shared/maps.js` (`KBM.TRANSITION_DEFAULT`) |

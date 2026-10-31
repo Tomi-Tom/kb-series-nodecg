@@ -70,6 +70,7 @@ Toutes ces URL sont à mettre dans une action **POST** (elles viennent après l'
 | Bracket | `/overlay/bracket/toggle` |
 | Ticker | `/overlay/ticker/toggle` |
 | Bug Replay (haut droite) | `/overlay/replay-bug/toggle` |
+| Overlay en jeu (équipes) | `/overlay/game-overlay/toggle` |
 | Lower third gauche / centre / droite | `/lower-third/left/toggle`, `/lower-third/center/toggle`, `/lower-third/right/toggle` |
 | Lower third : 1er intervenant (à gauche) | `/lower-third/left/preset/caster-1` |
 | Lower third : pause technique | `/lower-third/center/preset/pause` |
@@ -162,6 +163,7 @@ Une interrogation par seconde ne coûte rien à la régie. Évite tout de même 
 | `lower-third-left`, `lower-third-center`, `lower-third-right` | Lower thirds | non |
 | `ticker` | Ticker | non |
 | `replay-bug` | Bug Replay (haut droite) | non |
+| `game-overlay` | Overlay en jeu (équipes) | non |
 | `versus` | Versus | oui |
 | `veto` | Veto des maps | oui |
 | `veto-recap` | Récap du veto | oui |

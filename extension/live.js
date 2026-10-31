@@ -1,5 +1,5 @@
 // Logique serveur : live (lower thirds gauche / centre / droite + presets, ticker, écran 50/50, raccourcis de score de série)
-// Replicants : liveLowerThird, liveLowerThirdPresets, liveTicker, liveDualCam, liveReplayBug (défauts : shared/live.js, LIVE.defaults)
+// Replicants : liveLowerThird, liveLowerThirdPresets, liveTicker, liveDualCam, liveReplayBug, liveGameOverlay (défauts : shared/live.js, LIVE.defaults)
 // Masque seul un lower third après `duration` secondes. Message : 'live:series' { team, delta } → { A, B, currentMap }
 // Renvoie { series(team, delta) } (même logique que le message, pour l'API Companion)
 const LIVE = require('../shared/live.js');

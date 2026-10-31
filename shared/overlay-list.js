@@ -19,6 +19,7 @@
 		{ id: 'lower-third-right', label: 'Lower third droite', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['right', 'visible'] },
 		{ id: 'ticker', label: 'Ticker', group: 'En jeu (transparent)', rep: 'liveTicker', path: ['visible'] },
 		{ id: 'replay-bug', label: 'Bug Replay', group: 'En jeu (transparent)', rep: 'liveReplayBug', path: ['visible'] },
+		{ id: 'game-overlay', label: 'Overlay en jeu (équipes)', group: 'En jeu (transparent)', rep: 'liveGameOverlay', path: ['visible'] },
 		{ id: 'versus', label: 'Versus', group: 'Match', rep: 'matchGraphics', path: ['versus', 'visible'], fullscreen: true },
 		{ id: 'veto', label: 'Veto des maps', group: 'Match', rep: 'matchGraphics', path: ['veto', 'visible'], fullscreen: true },
 		{ id: 'veto-recap', label: 'Récap du veto', group: 'Match', rep: 'matchGraphics', path: ['vetoRecap', 'visible'], fullscreen: true },

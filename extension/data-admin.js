@@ -22,7 +22,7 @@ const GROUPS = {
 	schedule: ['planning', 'schedule', 'countdown'],
 	bracket: ['bracket'],
 	texts: ['scenesTexts', 'scenesRotation', 'tournament', 'casters', 'liveTicker'],
-	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug', 'planningGraphic'],
+	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug', 'liveGameOverlay', 'planningGraphic'],
 };
 
 module.exports = function (nodecg, listen, backup) {

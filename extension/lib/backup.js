@@ -14,10 +14,10 @@ const NAMES = [
 	'tournament', 'teams', 'playerData', 'playerProfiles', 'casters', 'schedule', 'planning', 'countdown',
 	'match', 'veto', 'matchVeto', 'bracket',
 	'scenesTexts', 'scenesRotation', 'liveTicker', 'liveLowerThirdPresets', 'mapsTransitionSettings',
-	'liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug', 'fullscreenStinger', 'planningGraphic',
+	'liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug', 'liveGameOverlay', 'fullscreenStinger', 'planningGraphic',
 ];
 // Overlays (ce qui peut être à l'antenne) : masqués après un import ou une restauration
-const OVERLAYS = ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'liveTicker', 'liveReplayBug', 'planningGraphic'];
+const OVERLAYS = ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'liveTicker', 'liveReplayBug', 'liveGameOverlay', 'planningGraphic'];
 const KEEP = 50;
 
 const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
