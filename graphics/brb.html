@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<title>KB SERIES · Pause</title>
 	<!--
-		Scène plein écran « Pause » : titre, compte à rebours de reprise, série en cours et bandeau d'infos en rotation.
+		Scène plein écran « Pause » : titre, compte à rebours de reprise, série en cours (équipes et score, sans les maps) et bandeau d'infos en rotation.
 		Replicants lus : tournament, teams, match, schedule, countdown, valorantData, scenesTexts, scenesRotation.
 		Pilotée par la régie (scène de fond de stream.html) et le panneau Écrans (dashboard/scenes.html).
 	-->
@@ -37,7 +37,7 @@
 		#cdWrap.hidden { display: none; }
 
 		/* ---------- Série (droite) ---------- */
-		#series { position: absolute; right: 100px; top: 230px; width: 760px; padding: 28px 34px 30px; }
+		#series { position: absolute; right: 100px; top: 380px; width: 760px; padding: 28px 34px 30px; }
 		#series.hidden { display: none; }
 		#series .hd { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 		#series .hd .kb-kicker { font-size: 17px; white-space: nowrap; }
@@ -49,25 +49,6 @@
 		.score { display: flex; align-items: center; justify-content: center; gap: 16px; font: 400 112px/1 var(--kb-display); }
 		.score .dash { font-size: 60px; color: var(--kb-muted); }
 		.score .lead { color: var(--kb-gold-hi); text-shadow: 0 0 24px rgba(245, 196, 69, .35); }
-		.maps { display: flex; flex-direction: column; gap: 8px; }
-		.mp { position: relative; height: 66px; display: grid; grid-template-columns: 74px 1fr auto 150px; align-items: center; gap: 16px; padding: 0 18px; overflow: hidden; background: var(--kb-night-1); clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
-		.mp .img { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .5; }
-		.mp .img::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4, 6, 26, .95) 0%, rgba(4, 6, 26, .55) 55%, rgba(4, 6, 26, .9) 100%); }
-		.mp > *:not(.img):not(.sc-rowflash):not(.sc-ls) { position: relative; }
-		.mp .no { font: 700 15px var(--kb-ui); letter-spacing: .2em; color: var(--kb-muted); }
-		.mp .name { font: 400 34px/1 var(--kb-display); text-transform: uppercase; letter-spacing: .03em; }
-		.mp .pick { font: 600 16px var(--kb-num); letter-spacing: .12em; color: var(--kb-muted); text-transform: uppercase; margin-left: 12px; }
-		.mp .sc { font: 700 34px var(--kb-num); white-space: nowrap; }
-		.mp .sc .w { color: var(--kb-gold-hi); } .mp .sc .l { color: var(--kb-muted); }
-		.mp .st { justify-self: end; font: 700 13px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
-		.mp .st.done { color: var(--kb-muted); border: 1px solid var(--kb-line); }
-		.mp .st.live { background: var(--kb-red); color: #fff; }
-		.mp .st.next { color: var(--kb-ink); background: linear-gradient(180deg, #d8c287, var(--kb-gold)); }
-		.mp .st.up { color: var(--kb-muted); }
-		.mp.is-live { box-shadow: inset 4px 0 0 var(--kb-red); }
-		.mp.is-live::after { content: ''; position: absolute; inset: 0; pointer-events: none; animation: sc-pulse-inset 2s ease-in-out infinite; }
-		.mp.is-next { box-shadow: inset 4px 0 0 var(--kb-gold); }
-		.mp.is-up .name { color: var(--kb-muted); }
 
 		/* ---------- Rotation d'infos (bas) ---------- */
 		#rot { position: absolute; left: 100px; right: 100px; bottom: 74px; height: 128px; display: flex; align-items: stretch; }
@@ -156,30 +137,9 @@
 		function seriesHTML(m) {
 			const s = KB.sides(m), score = KB.seriesScore(m);
 			const L = score[s.leftKey], R = score[s.rightKey];
-			const tm = (team, key) => `<div class="tm" style="--c:${esc((team && team.color) || 'var(--kb-blue)')}">${KB.teamLogo(team, 96)}<div class="nm" data-fit="16">${esc(S.teamName(team))}</div><i class="bar"></i></div>`;
-			const maps = (m.maps || []);
-			const nextIdx = maps.findIndex((x) => x.status !== 'done');
-			const rows = maps.map((mp, i) => {
-				const info = KB.map(mp.map);
-				const sl = mp[s.leftKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0, sr = mp[s.rightKey === 'A' ? 'scoreA' : 'scoreB'] ?? 0;
-				const pickTeam = mp.pickedBy === 'A' ? KB.team(m.teamA) : mp.pickedBy === 'B' ? KB.team(m.teamB) : null;
-				const pick = mp.pickedBy === 'decider' ? 'Decider' : pickTeam ? `Pick ${esc(pickTeam.tag || pickTeam.name)}` : '';
-				let st, cls, sc = '';
-				if (mp.status === 'done') {
-					st = '<span class="st done">Terminée</span>'; cls = 'is-done';
-					const wl = mp.winner ? (mp.winner === s.leftKey ? ['w', 'l'] : ['l', 'w']) : ['', ''];
-					sc = `<span class="sc"><span class="${wl[0]}">${sl}</span> – <span class="${wl[1]}">${sr}</span></span>`;
-				} else if (mp.status === 'live') {
-					st = '<span class="st live sc-live">En cours</span>'; cls = 'is-live';
-					sc = `<span class="sc">${sl} – ${sr}</span>`;
-				} else if (i === nextIdx) { st = '<span class="st next">À suivre</span>'; cls = 'is-next'; }
-				else { st = '<span class="st up">À venir</span>'; cls = 'is-up'; }
-				return `<div class="mp ${cls}" style="${maps.length > 3 ? 'height:54px' : ''}"><div class="img" style="${info && info.listView ? `background-image:url('${esc(info.listView)}')` : ''}"></div>
-					<span class="no">MAP ${i + 1}</span><span><span class="name">${esc(mp.map || 'À définir')}</span>${pick ? `<span class="pick">${pick}</span>` : ''}</span>${sc || '<span></span>'}${st}</div>`;
-			}).join('');
+			const tm = (team) => `<div class="tm" style="--c:${esc((team && team.color) || 'var(--kb-blue)')}">${KB.teamLogo(team, 96)}<div class="nm" data-fit="16">${esc(S.teamName(team))}</div><i class="bar"></i></div>`;
 			return `<div class="hd"><span class="kb-kicker">Série en cours</span><span class="kb-label">${esc(KB.joinDot(m.stage, KB.formatLabel(m.format)))}</span></div>
-				<div class="teams">${tm(s.left)}<div class="score"><span class="${L > R ? 'lead' : ''}">${L}</span><span class="dash">–</span><span class="${R > L ? 'lead' : ''}">${R}</span></div>${tm(s.right)}</div>
-				<div class="maps">${rows || '<div class="kb-label" style="text-align:center">Maps à venir</div>'}</div>`;
+				<div class="teams">${tm(s.left)}<div class="score"><span class="${L > R ? 'lead' : ''}">${L}</span><span class="dash">–</span><span class="${R > L ? 'lead' : ''}">${R}</span></div>${tm(s.right)}</div>`;
 		}
 
 		function render() {
@@ -199,15 +159,9 @@
 			stage.classList.toggle('solo', !hasMatch);
 			if (hasMatch) {
 				$('#series').innerHTML = seriesHTML(m);
-				// Changement de score de série / de map → pop lumineux
+				// Changement de score de série → pop lumineux
 				const sc = KB.seriesScore(m);
 				if (S.changed('series', [m.teamA, m.teamB, sc.A, sc.B])) S.bump($('#series .score'));
-				(m.maps || []).forEach((mp, i) => {
-					if (!S.changed('map' + i, [mp.map, mp.scoreA, mp.scoreB, mp.status, mp.winner])) return;
-					const el = KB.$$('#series .mp')[i];
-					if (el) { el.insertAdjacentHTML('beforeend', '<i class="sc-rowflash"></i>'); KB.$$('.sc, .st', el).forEach(S.bump); }
-				});
-				const lv = KB.$('#series .mp.is-live'); if (lv) lv.insertAdjacentHTML('beforeend', '<i class="sc-ls"></i>');
 			}
 			S.fitAll(stage);
 			KB.fit($('#title'), { min: 80 });
